@@ -509,7 +509,7 @@ class HouseCard extends HTMLElement {
               background: radial-gradient(ellipse at center,
                   rgba(15, 20, 30, 0.25) 0%,
                   rgba(15, 20, 30, 0.15) 50%,
-                  transparent 100%);
+                  transparent 90%);
               filter: blur(2px);
               mix-blend-mode: multiply;
           }
