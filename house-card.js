@@ -25,9 +25,10 @@ class HouseCard extends HTMLElement {
       this._particles = []; this._clouds = []; this._stars = []; this._fogParticles = [];
       this._lightningTimer = 0; this._flashOpacity = 0; this._lightningBolt = null;
       
-      // Bound handler for visibility change
+      // Visibility tracking
+      this._isVisible = false;
+      this._intersectionObserver = null;
       this._handleVisibilityChange = this._onVisibilityChange.bind(this);
-      this._handleFocus = this._onFocus.bind(this);
     }
   
     static getStubConfig() {
@@ -82,55 +83,63 @@ class HouseCard extends HTMLElement {
               this._resizeObserver.observe(card);
           }
       }
-      // Listen for tab visibility changes to pause/resume animations
+      // Listen for tab visibility changes
       document.addEventListener('visibilitychange', this._handleVisibilityChange);
-      // Backup listeners for mobile apps and page navigation
-      window.addEventListener('focus', this._handleFocus);
-      window.addEventListener('pageshow', this._handleFocus);
       
-      // Restart animation when component is reconnected (e.g., navigating back in HA)
-      if (this._canvas && this._ctx && this._hass && !this._animationFrame) {
-        this._restartAnimation();
+      // IntersectionObserver to detect when card is visible in viewport
+      // This handles HA view switching better than visibility events
+      if (!this._intersectionObserver) {
+        this._intersectionObserver = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            const wasVisible = this._isVisible;
+            this._isVisible = entry.isIntersecting;
+            
+            if (this._isVisible && !wasVisible) {
+              // Card just became visible - restart animation
+              this._restartAnimation();
+            } else if (!this._isVisible && wasVisible) {
+              // Card is now hidden - stop animation
+              this._stopAnimation();
+            }
+          });
+        }, { threshold: 0.1 });
+        this._intersectionObserver.observe(this);
       }
     }
   
     disconnectedCallback() {
       if (this._resizeObserver) this._resizeObserver.disconnect();
-      if (this._animationFrame) {
-        cancelAnimationFrame(this._animationFrame);
-        this._animationFrame = null;
+      if (this._intersectionObserver) {
+        this._intersectionObserver.disconnect();
+        this._intersectionObserver = null;
       }
+      this._stopAnimation();
       document.removeEventListener('visibilitychange', this._handleVisibilityChange);
-      window.removeEventListener('focus', this._handleFocus);
-      window.removeEventListener('pageshow', this._handleFocus);
-    }
-
-    _onFocus() {
-      // When window gains focus, restart animation if it's not running
-      if (!document.hidden) {
-        this._restartAnimation();
-      }
     }
 
     _onVisibilityChange() {
       if (document.hidden) {
-        // Tab is hidden - stop animation to prevent stale frames
-        if (this._animationFrame) {
-          cancelAnimationFrame(this._animationFrame);
-          this._animationFrame = null;
-        }
-      } else {
-        // Tab is visible again - restart animation if we have a canvas
+        this._stopAnimation();
+      } else if (this._isVisible) {
+        // Tab visible again and card is in viewport
         this._restartAnimation();
       }
     }
 
-    _restartAnimation() {
-      // Cancel any existing frame first
+    _stopAnimation() {
       if (this._animationFrame) {
         cancelAnimationFrame(this._animationFrame);
         this._animationFrame = null;
       }
+    }
+
+    _restartAnimation() {
+      // Don't restart if document is hidden or card is not visible
+      if (document.hidden || !this._isVisible) return;
+      
+      // Cancel any existing frame first
+      this._stopAnimation();
+      
       // Restart if we have the necessary components
       if (this._canvas && this._ctx && this._hass) {
         this._resizeCanvas();
@@ -227,7 +236,8 @@ class HouseCard extends HTMLElement {
       this._handleGamingMode();
       this._handleDayNight();
       
-      if (!this._animationFrame && this._canvas && this._ctx) {
+      // Start animation if not running and card is visible
+      if (!this._animationFrame && this._canvas && this._ctx && this._isVisible && !document.hidden) {
         if (this._stars.length === 0) this._initStars();
         this._animate();
       }
@@ -452,6 +462,8 @@ class HouseCard extends HTMLElement {
       `;
       this._canvas = this.shadowRoot.getElementById('weatherCanvas');
       this._ctx = this._canvas.getContext('2d');
+      // Assume visible on initial render (IntersectionObserver will update this)
+      this._isVisible = true;
       setTimeout(() => this._resizeCanvas(), 100);
       this.connectedCallback();
     }
