@@ -506,8 +506,11 @@ class HouseCard extends HTMLElement {
               pointer-events: none;
           }
           .window-light.is-off {
-              background: rgba(20, 25, 35, 0.75);
-              border-radius: 1px;
+              background: radial-gradient(ellipse at center,
+                  rgba(15, 20, 30, 0.6) 0%,
+                  rgba(15, 20, 30, 0.4) 50%,
+                  transparent 100%);
+              filter: blur(2px);
               mix-blend-mode: multiply;
           }
           
