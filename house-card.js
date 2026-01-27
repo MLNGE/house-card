@@ -344,6 +344,7 @@ class HouseCard extends HTMLElement {
         if (!container || !this._config.window_lights) return;
         
         const windowLights = this._config.window_lights;
+        const debugMode = this._config.window_lights_debug || false;
         
         // Build HTML for window lights
         container.innerHTML = windowLights.map((win, index) => {
@@ -371,11 +372,14 @@ class HouseCard extends HTMLElement {
                   `--window-glow-outer: rgba(${colorRGB.r}, ${colorRGB.g}, ${colorRGB.b}, ${opacity * 0.4});`
                 : '';
             
+            // Debug border to help with positioning
+            const debugStyle = debugMode ? 'border: 2px dashed red !important; background: rgba(255,0,0,0.3) !important;' : '';
+            
             return `
               <div class="window-light ${isOn ? 'is-on' : 'is-off'}" 
                    data-entity="${win.entity}"
                    data-index="${index}"
-                   style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%; ${colorStyle}">
+                   style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%; ${colorStyle} ${debugStyle}">
               </div>`;
         }).join('');
         
@@ -469,30 +473,30 @@ class HouseCard extends HTMLElement {
           /* WINDOW LIGHTS */
           .window-lights-layer {
               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-              z-index: 2; pointer-events: none;
+              z-index: 4; pointer-events: none;
           }
           .window-light {
               position: absolute;
               transform: translate(-50%, -50%);
-              border-radius: 2px;
+              border-radius: 3px;
               transition: all 0.5s ease;
               pointer-events: auto;
               cursor: pointer;
           }
           .window-light.is-on {
               background: radial-gradient(ellipse at center, 
-                  var(--window-color, rgba(255, 200, 100, 0.9)) 0%, 
-                  var(--window-color-mid, rgba(255, 180, 80, 0.6)) 40%,
-                  transparent 70%);
+                  var(--window-color, rgba(255, 200, 100, 0.95)) 0%, 
+                  var(--window-color, rgba(255, 200, 100, 0.7)) 50%,
+                  var(--window-color-mid, rgba(255, 180, 80, 0.3)) 80%,
+                  transparent 100%);
               box-shadow: 
-                  0 0 15px var(--window-glow, rgba(255, 180, 100, 0.8)),
-                  0 0 30px var(--window-glow-outer, rgba(255, 150, 50, 0.4)),
-                  inset 0 0 10px var(--window-color, rgba(255, 200, 100, 0.5));
-              filter: blur(1px);
+                  0 0 20px var(--window-glow, rgba(255, 180, 100, 0.9)),
+                  0 0 40px var(--window-glow-outer, rgba(255, 150, 50, 0.5)),
+                  0 0 60px var(--window-glow-outer, rgba(255, 150, 50, 0.3));
           }
           .window-light.is-off {
-              background: rgba(0, 0, 0, 0.6);
-              box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.8);
+              background: rgba(0, 0, 0, 0.7);
+              border: 1px solid rgba(0, 0, 0, 0.3);
           }
           
           /* GAMING AMBIENT */
