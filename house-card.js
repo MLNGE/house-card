@@ -78,20 +78,11 @@ class HouseCard extends HTMLElement {
               this._resizeObserver.observe(card);
           }
       }
-      if (!this._animationFrame && this._ctx && this._hass) {
-        this._animate();
-      }
     }
   
     disconnectedCallback() {
-      if (this._resizeObserver) {
-         this._resizeObserver.disconnect();
-         this._resizeObserver = null;
-      }
-      if (this._animationFrame) {
-         cancelAnimationFrame(this._animationFrame);
-         this._animationFrame = null;
-      }
+      if (this._resizeObserver) this._resizeObserver.disconnect();
+      if (this._animationFrame) cancelAnimationFrame(this._animationFrame);
     }
 
     _calculateImage() {
@@ -430,7 +421,7 @@ class HouseCard extends HTMLElement {
     }
 
     _animate() {
-      if (!this._ctx || !this._hass) return;
+      if (!this._ctx) return;
       
       const wEnt = this._config.weather_entity;
       let wState = this._config.test_weather_state || (wEnt ? this._hass.states[wEnt]?.state : "");
