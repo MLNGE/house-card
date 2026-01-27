@@ -507,8 +507,8 @@ class HouseCard extends HTMLElement {
           }
           .window-light.is-off {
               background: radial-gradient(ellipse at center,
-                  rgba(15, 20, 30, 0.6) 0%,
-                  rgba(15, 20, 30, 0.4) 50%,
+                  rgba(15, 20, 30, 0.25) 0%,
+                  rgba(15, 20, 30, 0.15) 50%,
                   transparent 100%);
               filter: blur(2px);
               mix-blend-mode: multiply;
