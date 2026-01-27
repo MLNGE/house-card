@@ -31,14 +31,14 @@ class HouseCard extends HTMLElement {
         language: "pl",
         scale: 1.0,          
         image_y_offset: 0,   
-        image: "/local/community/fork_u-house_card/images/",
+        image: "/local/community/house-card/images/",
         weather_entity: "weather.forecast_home",
         season_entity: "sensor.season",
         sun_entity: "sun.sun",
         cloud_coverage_entity: "sensor.openweathermap_cloud_coverage",
         party_mode_entity: "input_boolean.gaming_mode",
         rooms: [
-            { name: "Salon", entity: "sensor.salon_temp", humidity_entity: "sensor.salon_humidity", x: 50, y: 50 },
+            { name: "Salon", entity: "sensor.salon_temp", humidity_entity: "sensor.salon_humidity", co2_entity: "sensor.salon_co2", x: 50, y: 50 },
             { name: "Moc", entity: "sensor.power", x: 20, y: 80, unit: "W", decimals: 0 }
         ]
       };
@@ -161,7 +161,12 @@ class HouseCard extends HTMLElement {
             const hState = this._hass.states[r.humidity_entity];
             if (hState && !isNaN(parseFloat(hState.state))) hum = Math.round(parseFloat(hState.state));
         }
-        return { ...r, value: v, humidity: hum, valid: !isNaN(v) };
+        let co2 = null;
+        if (r.co2_entity) {
+            const cState = this._hass.states[r.co2_entity];
+            if (cState && !isNaN(parseFloat(cState.state))) co2 = Math.round(parseFloat(cState.state));
+        }
+        return { ...r, value: v, humidity: hum, co2: co2, valid: !isNaN(v) };
       });
       
       this._updateBadges(roomsData);
@@ -191,6 +196,10 @@ class HouseCard extends HTMLElement {
         let finalValueString = `${displayVal}${unit}`;
         if (room.humidity !== null) {
             finalValueString += ` <span style="opacity:0.7; font-size: 0.9em;">|</span> ${room.humidity}%`;
+        }
+        if (room.co2 !== null) {
+            const co2Color = this._getCo2Color(room.co2);
+            finalValueString += ` <span style="opacity:0.7; font-size: 0.9em;">|</span> <span style="color: ${co2Color}">${room.co2}<span style="font-size:0.7em">ppm</span></span>`;
         }
 
         let visualHtml = '';
@@ -236,6 +245,12 @@ class HouseCard extends HTMLElement {
     
     _getTempColorClass(t) {
       if (t < 19) return 'is-cold'; if (t < 23) return 'is-optimal'; if (t < 25) return 'is-warm'; return 'is-hot';
+    }
+
+    _getCo2Color(level) {
+        if (level < 1000) return 'var(--color-opt)'; // Good
+        if (level < 1600) return 'var(--color-warm)'; // Moderate/Warning
+        return 'var(--color-hot)'; // Bad/Danger
     }
 
     _handleGamingMode() {
