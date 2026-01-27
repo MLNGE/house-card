@@ -48,6 +48,9 @@ class HouseCard extends HTMLElement {
         ],
         window_lights: [
             { entity: "light.living_room", x: 25, y: 60, width: 8, height: 10, color: "#FFA500" }
+        ],
+        nav_links: [
+            { path: "/lovelace/garage", x: 80, y: 70, width: 15, height: 20, icon: "mdi:garage" }
         ]
       };
     }
@@ -237,6 +240,7 @@ class HouseCard extends HTMLElement {
       
       this._updateBadges(roomsData);
       this._updateWindowLights();
+      this._updateNavLinks();
       this._handleGamingMode();
       this._handleDayNight();
       
@@ -395,6 +399,56 @@ class HouseCard extends HTMLElement {
             });
         });
     }
+
+    _updateNavLinks() {
+        const container = this.shadowRoot.querySelector('.nav-links-layer');
+        if (!container || !this._config.nav_links) return;
+        
+        const navLinks = this._config.nav_links;
+        const debugMode = this._config.nav_links_debug || false;
+        
+        container.innerHTML = navLinks.map((link, index) => {
+            const x = link.x ?? 50;
+            const y = link.y ?? 50;
+            const width = link.width ?? 10;
+            const height = link.height ?? 10;
+            const icon = link.icon || '';
+            const label = link.label || '';
+            
+            // Debug border to help with positioning
+            const debugStyle = debugMode ? 'border: 2px dashed lime !important; background: rgba(0,255,0,0.2) !important;' : '';
+            
+            // Icon HTML (uses HA icon if provided)
+            let iconHtml = '';
+            if (icon) {
+                iconHtml = `<ha-icon icon="${icon}" style="--mdc-icon-size: 24px; color: white; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));"></ha-icon>`;
+            }
+            if (label) {
+                iconHtml += `<span class="nav-label">${label}</span>`;
+            }
+            
+            return `
+              <div class="nav-link" 
+                   data-path="${link.path}"
+                   data-index="${index}"
+                   style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%; ${debugStyle}">
+                   ${iconHtml}
+              </div>`;
+        }).join('');
+        
+        // Attach click listeners for navigation
+        container.querySelectorAll('.nav-link').forEach(navEl => {
+            navEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const path = navEl.getAttribute('data-path');
+                if (path) {
+                    // Navigate to the specified path
+                    history.pushState(null, '', path);
+                    window.dispatchEvent(new Event('location-changed'));
+                }
+            });
+        });
+    }
     
     _hexToRgb(hex) {
         // Handle both #RGB and #RRGGBB formats
@@ -514,6 +568,38 @@ class HouseCard extends HTMLElement {
               mix-blend-mode: multiply;
           }
           
+          /* NAV LINKS */
+          .nav-links-layer {
+              position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+              z-index: 5; pointer-events: none;
+          }
+          .nav-link {
+              position: absolute;
+              transform: translate(-50%, -50%);
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              gap: 4px;
+              pointer-events: auto;
+              cursor: pointer;
+              border-radius: 8px;
+              transition: all 0.2s ease;
+          }
+          .nav-link:hover {
+              background: rgba(255, 255, 255, 0.1);
+          }
+          .nav-link:active {
+              transform: translate(-50%, -50%) scale(0.95);
+          }
+          .nav-link .nav-label {
+              font-size: 0.65rem;
+              color: white;
+              text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+          }
+          
           /* GAMING AMBIENT */
           .ambient-layer {
               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -585,6 +671,7 @@ class HouseCard extends HTMLElement {
               <div class="ambient-light blob-3"></div>
           </div>
           <canvas id="weatherCanvas"></canvas>
+          <div class="nav-links-layer"></div>
           <div class="badges-layer"></div>
         </div>
       `;
