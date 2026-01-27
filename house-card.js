@@ -27,6 +27,7 @@ class HouseCard extends HTMLElement {
       
       // Bound handler for visibility change
       this._handleVisibilityChange = this._onVisibilityChange.bind(this);
+      this._handleFocus = this._onFocus.bind(this);
     }
   
     static getStubConfig() {
@@ -83,12 +84,32 @@ class HouseCard extends HTMLElement {
       }
       // Listen for tab visibility changes to pause/resume animations
       document.addEventListener('visibilitychange', this._handleVisibilityChange);
+      // Backup listeners for mobile apps and page navigation
+      window.addEventListener('focus', this._handleFocus);
+      window.addEventListener('pageshow', this._handleFocus);
+      
+      // Restart animation when component is reconnected (e.g., navigating back in HA)
+      if (this._canvas && this._ctx && this._hass && !this._animationFrame) {
+        this._restartAnimation();
+      }
     }
   
     disconnectedCallback() {
       if (this._resizeObserver) this._resizeObserver.disconnect();
-      if (this._animationFrame) cancelAnimationFrame(this._animationFrame);
+      if (this._animationFrame) {
+        cancelAnimationFrame(this._animationFrame);
+        this._animationFrame = null;
+      }
       document.removeEventListener('visibilitychange', this._handleVisibilityChange);
+      window.removeEventListener('focus', this._handleFocus);
+      window.removeEventListener('pageshow', this._handleFocus);
+    }
+
+    _onFocus() {
+      // When window gains focus, restart animation if it's not running
+      if (!document.hidden) {
+        this._restartAnimation();
+      }
     }
 
     _onVisibilityChange() {
@@ -100,9 +121,21 @@ class HouseCard extends HTMLElement {
         }
       } else {
         // Tab is visible again - restart animation if we have a canvas
-        if (!this._animationFrame && this._canvas && this._ctx) {
-          this._animate();
-        }
+        this._restartAnimation();
+      }
+    }
+
+    _restartAnimation() {
+      // Cancel any existing frame first
+      if (this._animationFrame) {
+        cancelAnimationFrame(this._animationFrame);
+        this._animationFrame = null;
+      }
+      // Restart if we have the necessary components
+      if (this._canvas && this._ctx && this._hass) {
+        this._resizeCanvas();
+        if (this._stars.length === 0) this._initStars();
+        this._animate();
       }
     }
 
@@ -194,8 +227,8 @@ class HouseCard extends HTMLElement {
       this._handleGamingMode();
       this._handleDayNight();
       
-      if (!this._animationFrame && this._canvas) {
-        this._initStars();
+      if (!this._animationFrame && this._canvas && this._ctx) {
+        if (this._stars.length === 0) this._initStars();
         this._animate();
       }
     }
@@ -442,7 +475,11 @@ class HouseCard extends HTMLElement {
     }
 
     _animate() {
-      if (!this._ctx) return;
+      if (!this._ctx || !this._hass || !this._canvas) {
+        // Missing required components - don't schedule next frame
+        this._animationFrame = null;
+        return;
+      }
       
       const wEnt = this._config.weather_entity;
       let wState = this._config.test_weather_state || (wEnt ? this._hass.states[wEnt]?.state : "");
