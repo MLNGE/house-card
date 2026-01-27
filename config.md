@@ -59,3 +59,26 @@ rooms:
     x: 80
     y: 80
     weight: 0
+# --- Window Lights Configuration ---
+# Link light entities to specific window regions on the house image.
+# When the light is ON, the window glows. When OFF, the window appears dark.
+# x: Horizontal center position % (0 = left, 100 = right)
+# y: Vertical center position % (0 = top, 100 = bottom)
+# width: Width of the window region in %
+# height: Height of the window region in %
+# color: Glow color when light is on (hex format, default: "#FFA64D" warm orange)
+# Clicking a window will toggle the light entity.
+window_lights:
+  - entity: light.living_room_lamp
+    x: 25          # Position of window center (percentage)
+    y: 60
+    width: 8       # Size of the glow area
+    height: 10
+    color: "#FFA64D"  # Warm orange glow (optional)
+
+  - entity: light.bedroom
+    x: 70
+    y: 45
+    width: 6
+    height: 8
+    color: "#FFFACD"  # Soft warm white

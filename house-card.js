@@ -45,6 +45,9 @@ class HouseCard extends HTMLElement {
         rooms: [
             { name: "Salon", entity: "sensor.salon_temp", humidity_entity: "sensor.salon_humidity", co2_entity: "sensor.salon_co2", x: 50, y: 50 },
             { name: "Moc", entity: "sensor.power", x: 20, y: 80, unit: "W", decimals: 0 }
+        ],
+        window_lights: [
+            { entity: "light.living_room", x: 25, y: 60, width: 8, height: 10, color: "#FFA500" }
         ]
       };
     }
@@ -233,6 +236,7 @@ class HouseCard extends HTMLElement {
       });
       
       this._updateBadges(roomsData);
+      this._updateWindowLights();
       this._handleGamingMode();
       this._handleDayNight();
       
@@ -335,6 +339,81 @@ class HouseCard extends HTMLElement {
         return isNight;
     }
 
+    _updateWindowLights() {
+        const container = this.shadowRoot.querySelector('.window-lights-layer');
+        if (!container || !this._config.window_lights) return;
+        
+        const windowLights = this._config.window_lights;
+        
+        // Build HTML for window lights
+        container.innerHTML = windowLights.map((win, index) => {
+            const entity = this._hass.states[win.entity];
+            const isOn = entity?.state === 'on';
+            const x = win.x ?? 50;
+            const y = win.y ?? 50;
+            const width = win.width ?? 10;
+            const height = win.height ?? 12;
+            const color = win.color || '#FFA64D';
+            const brightness = entity?.attributes?.brightness;
+            
+            // Calculate opacity based on brightness (0-255) if available
+            let opacity = isOn ? 1 : 0;
+            if (isOn && brightness !== undefined) {
+                opacity = Math.max(0.3, brightness / 255);
+            }
+            
+            // Parse color and create variations for gradient
+            const colorRGB = this._hexToRgb(color);
+            const colorStyle = colorRGB 
+                ? `--window-color: rgba(${colorRGB.r}, ${colorRGB.g}, ${colorRGB.b}, ${opacity * 0.9}); ` +
+                  `--window-color-mid: rgba(${colorRGB.r}, ${colorRGB.g}, ${colorRGB.b}, ${opacity * 0.6}); ` +
+                  `--window-glow: rgba(${colorRGB.r}, ${colorRGB.g}, ${colorRGB.b}, ${opacity * 0.8}); ` +
+                  `--window-glow-outer: rgba(${colorRGB.r}, ${colorRGB.g}, ${colorRGB.b}, ${opacity * 0.4});`
+                : '';
+            
+            return `
+              <div class="window-light ${isOn ? 'is-on' : 'is-off'}" 
+                   data-entity="${win.entity}"
+                   data-index="${index}"
+                   style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%; ${colorStyle}">
+              </div>`;
+        }).join('');
+        
+        // Attach click listeners to toggle lights
+        container.querySelectorAll('.window-light').forEach(windowEl => {
+            windowEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const entityId = windowEl.getAttribute('data-entity');
+                if (entityId) {
+                    // Toggle the light
+                    this._hass.callService('light', 'toggle', { entity_id: entityId });
+                }
+            });
+        });
+    }
+    
+    _hexToRgb(hex) {
+        // Handle both #RGB and #RRGGBB formats
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        if (result) {
+            return {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            };
+        }
+        // Try short format #RGB
+        const shortResult = /^#?([a-f\d])([a-f\d])([a-f\d])$/i.exec(hex);
+        if (shortResult) {
+            return {
+                r: parseInt(shortResult[1] + shortResult[1], 16),
+                g: parseInt(shortResult[2] + shortResult[2], 16),
+                b: parseInt(shortResult[3] + shortResult[3], 16)
+            };
+        }
+        return null;
+    }
+
     _getWindData() {
         let speed = 10, bearing = 270;
         if(this._config.wind_speed_entity && this._hass.states[this._config.wind_speed_entity]) 
@@ -385,6 +464,35 @@ class HouseCard extends HTMLElement {
           .dim-layer {
               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
               background: #000; opacity: 0; z-index: 1; pointer-events: none; transition: opacity 2s ease;
+          }
+          
+          /* WINDOW LIGHTS */
+          .window-lights-layer {
+              position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+              z-index: 2; pointer-events: none;
+          }
+          .window-light {
+              position: absolute;
+              transform: translate(-50%, -50%);
+              border-radius: 2px;
+              transition: all 0.5s ease;
+              pointer-events: auto;
+              cursor: pointer;
+          }
+          .window-light.is-on {
+              background: radial-gradient(ellipse at center, 
+                  var(--window-color, rgba(255, 200, 100, 0.9)) 0%, 
+                  var(--window-color-mid, rgba(255, 180, 80, 0.6)) 40%,
+                  transparent 70%);
+              box-shadow: 
+                  0 0 15px var(--window-glow, rgba(255, 180, 100, 0.8)),
+                  0 0 30px var(--window-glow-outer, rgba(255, 150, 50, 0.4)),
+                  inset 0 0 10px var(--window-color, rgba(255, 200, 100, 0.5));
+              filter: blur(1px);
+          }
+          .window-light.is-off {
+              background: rgba(0, 0, 0, 0.6);
+              box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.8);
           }
           
           /* GAMING AMBIENT */
@@ -451,6 +559,7 @@ class HouseCard extends HTMLElement {
           <div class="bg-image"></div>
           <div class="gradient-layer"></div>
           <div class="dim-layer"></div>
+          <div class="window-lights-layer"></div>
           <div class="ambient-layer">
               <div class="ambient-light blob-1"></div>
               <div class="ambient-light blob-2"></div>
