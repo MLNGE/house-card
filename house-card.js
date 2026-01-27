@@ -1,5 +1,5 @@
 /**
- * Fork_U-House_Card v12.6 (Interactivity)
+ * House Card (Interactivity)
  * * FEAT: Click badges to open 'More Info' dialog.
  * * FEAT: Full Width Support (Sections View).
  * * FEAT: Global Scale & Y-Offset.
@@ -11,7 +11,7 @@ const TRANSLATIONS = {
     pl: { loading: "Ładowanie...", home_median: "Dom" }
 };
 
-class ForkUHouseCard extends HTMLElement {
+class HouseCard extends HTMLElement {
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
@@ -547,6 +547,6 @@ class ForkUHouseCard extends HTMLElement {
     }
   }
   
-  customElements.define('fork-u-house-card', ForkUHouseCard);
+  customElements.define('house-card', HouseCard);
   window.customCards = window.customCards || [];
-  window.customCards.push({ type: "fork-u-house-card", name: "Fork U-House Card V12.6", description: "Interactivity Enabled" });
+  window.customCards.push({ type: "house-card", name: "House Card", description: "Interactivity Enabled" });

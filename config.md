@@ -1,4 +1,4 @@
-type: custom:fork-u-house-card
+type: custom:house-card
 title: "My Residence" # Optional title (visual only)
 language: "en"        # Options: 'en', 'pl'
 
