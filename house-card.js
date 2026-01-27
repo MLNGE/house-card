@@ -78,7 +78,7 @@ class HouseCard extends HTMLElement {
               this._resizeObserver.observe(card);
           }
       }
-      if (!this._animationFrame && this._ctx) {
+      if (!this._animationFrame && this._ctx && this._hass) {
         this._animate();
       }
     }
@@ -430,7 +430,7 @@ class HouseCard extends HTMLElement {
     }
 
     _animate() {
-      if (!this._ctx) return;
+      if (!this._ctx || !this._hass) return;
       
       const wEnt = this._config.weather_entity;
       let wState = this._config.test_weather_state || (wEnt ? this._hass.states[wEnt]?.state : "");
