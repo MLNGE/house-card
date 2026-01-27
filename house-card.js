@@ -78,11 +78,20 @@ class HouseCard extends HTMLElement {
               this._resizeObserver.observe(card);
           }
       }
+      if (!this._animationFrame && this._ctx) {
+        this._animate();
+      }
     }
   
     disconnectedCallback() {
-      if (this._resizeObserver) this._resizeObserver.disconnect();
-      if (this._animationFrame) cancelAnimationFrame(this._animationFrame);
+      if (this._resizeObserver) {
+         this._resizeObserver.disconnect();
+         this._resizeObserver = null;
+      }
+      if (this._animationFrame) {
+         cancelAnimationFrame(this._animationFrame);
+         this._animationFrame = null;
+      }
     }
 
     _calculateImage() {
