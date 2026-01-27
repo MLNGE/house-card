@@ -24,6 +24,9 @@ class HouseCard extends HTMLElement {
       
       this._particles = []; this._clouds = []; this._stars = []; this._fogParticles = [];
       this._lightningTimer = 0; this._flashOpacity = 0; this._lightningBolt = null;
+      
+      // Bound handler for visibility change
+      this._handleVisibilityChange = this._onVisibilityChange.bind(this);
     }
   
     static getStubConfig() {
@@ -78,11 +81,29 @@ class HouseCard extends HTMLElement {
               this._resizeObserver.observe(card);
           }
       }
+      // Listen for tab visibility changes to pause/resume animations
+      document.addEventListener('visibilitychange', this._handleVisibilityChange);
     }
   
     disconnectedCallback() {
       if (this._resizeObserver) this._resizeObserver.disconnect();
       if (this._animationFrame) cancelAnimationFrame(this._animationFrame);
+      document.removeEventListener('visibilitychange', this._handleVisibilityChange);
+    }
+
+    _onVisibilityChange() {
+      if (document.hidden) {
+        // Tab is hidden - stop animation to prevent stale frames
+        if (this._animationFrame) {
+          cancelAnimationFrame(this._animationFrame);
+          this._animationFrame = null;
+        }
+      } else {
+        // Tab is visible again - restart animation if we have a canvas
+        if (!this._animationFrame && this._canvas && this._ctx) {
+          this._animate();
+        }
+      }
     }
 
     _calculateImage() {
