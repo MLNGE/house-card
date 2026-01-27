@@ -478,25 +478,37 @@ class HouseCard extends HTMLElement {
           .window-light {
               position: absolute;
               transform: translate(-50%, -50%);
-              border-radius: 3px;
-              transition: all 0.5s ease;
+              border-radius: 2px;
+              transition: all 0.8s ease;
               pointer-events: auto;
               cursor: pointer;
           }
           .window-light.is-on {
               background: radial-gradient(ellipse at center, 
-                  var(--window-color, rgba(255, 200, 100, 0.95)) 0%, 
-                  var(--window-color, rgba(255, 200, 100, 0.7)) 50%,
-                  var(--window-color-mid, rgba(255, 180, 80, 0.3)) 80%,
+                  var(--window-color, rgba(255, 220, 150, 0.85)) 0%, 
+                  var(--window-color, rgba(255, 200, 120, 0.5)) 30%,
+                  var(--window-color-mid, rgba(255, 180, 100, 0.2)) 60%,
                   transparent 100%);
-              box-shadow: 
-                  0 0 20px var(--window-glow, rgba(255, 180, 100, 0.9)),
-                  0 0 40px var(--window-glow-outer, rgba(255, 150, 50, 0.5)),
-                  0 0 60px var(--window-glow-outer, rgba(255, 150, 50, 0.3));
+              mix-blend-mode: screen;
+              filter: blur(3px);
+          }
+          .window-light.is-on::after {
+              content: '';
+              position: absolute;
+              top: 50%; left: 50%;
+              transform: translate(-50%, -50%);
+              width: 200%; height: 200%;
+              background: radial-gradient(ellipse at center,
+                  var(--window-glow-outer, rgba(255, 180, 100, 0.25)) 0%,
+                  transparent 70%);
+              mix-blend-mode: screen;
+              filter: blur(10px);
+              pointer-events: none;
           }
           .window-light.is-off {
-              background: rgba(0, 0, 0, 0.7);
-              border: 1px solid rgba(0, 0, 0, 0.3);
+              background: rgba(20, 25, 35, 0.75);
+              border-radius: 1px;
+              mix-blend-mode: multiply;
           }
           
           /* GAMING AMBIENT */
