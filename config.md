@@ -82,3 +82,32 @@ window_lights:
     width: 6
     height: 8
     color: "#FFFACD"  # Soft warm white
+
+# --- Navigation Links Configuration ---
+# Create invisible clickable hotspots that navigate to different HA views/tabs.
+# x: Horizontal center position % (0 = left, 100 = right)
+# y: Vertical center position % (0 = top, 100 = bottom)
+# width: Width of the clickable area in %
+# height: Height of the clickable area in %
+# icon: Optional MDI icon to display (e.g., "mdi:garage")
+# label: Optional text label below the icon
+# Clicking the hotspot navigates to the specified path.
+nav_links:
+  - path: /lovelace/garage   # The HA view path to navigate to
+    x: 80                     # Position of hotspot center (percentage)
+    y: 70
+    width: 15                 # Size of clickable area
+    height: 20
+    icon: "mdi:garage"        # Optional icon
+    label: "Garage"           # Optional label
+
+  - path: /lovelace/car
+    x: 85
+    y: 85
+    width: 10
+    height: 12
+
+# --- Debug Modes ---
+# Enable these to see colored outlines for positioning overlays:
+# window_lights_debug: true   # Red dashed outlines for window lights
+# nav_links_debug: true       # Green dashed outlines for navigation links
