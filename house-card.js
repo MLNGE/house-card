@@ -34,7 +34,8 @@ class HouseCard extends HTMLElement {
     static getStubConfig() {
       return {
         language: "pl",
-        scale: 1.0,          
+        scale: 1.0,
+        background_zoom: 1.0,
         image_y_offset: 0,   
         image: "/local/community/house-card/images/",
         weather_entity: "weather.forecast_home",
@@ -198,11 +199,13 @@ class HouseCard extends HTMLElement {
       
       if (this._currentImageUrl !== newImage || 
           this._lastYOffset !== this._config.image_y_offset ||
-          this._lastScale !== this._config.scale) {
+          this._lastScale !== this._config.scale ||
+          this._lastBackgroundZoom !== this._config.background_zoom) {
           
           this._currentImageUrl = newImage;
           this._lastYOffset = this._config.image_y_offset;
           this._lastScale = this._config.scale;
+          this._lastBackgroundZoom = this._config.background_zoom;
           
           const bgEl = this.shadowRoot.querySelector('.bg-image');
           if (bgEl) {
@@ -210,7 +213,9 @@ class HouseCard extends HTMLElement {
               img.onload = () => { 
                   bgEl.style.backgroundImage = `url('${newImage}')`;
                   const yOffset = this._config.image_y_offset || 0;
+                  const bgZoom = this._config.background_zoom || 1.0;
                   bgEl.style.setProperty('--image-y-offset', `${yOffset}px`);
+                  bgEl.style.setProperty('--background-zoom', bgZoom);
               };
               img.src = newImage;
           }
@@ -256,7 +261,7 @@ class HouseCard extends HTMLElement {
       if (!container) return;
       
       // 1. Generate HTML
-      container.innerHTML = rooms.map(room => {
+      container.innerHTML = rooms.map((room, index) => {
         if (!room.valid) return '';
         const top = room.y ?? 50; 
         const left = room.x ?? 50;
@@ -289,7 +294,7 @@ class HouseCard extends HTMLElement {
         }
 
         return `
-          <div class="badge ${colorClass}" data-entity="${room.entity}" style="top: ${top}%; left: ${left}%;">
+          <div class="badge ${colorClass}" data-index="${index}" data-entity="${room.entity}" style="top: ${top}%; left: ${left}%;">
             ${visualHtml}
             <div class="badge-content">
               <span class="badge-name">${room.name}</span>
@@ -301,20 +306,80 @@ class HouseCard extends HTMLElement {
       // 2. Attach Click Listeners
       container.querySelectorAll('.badge').forEach(badge => {
           badge.addEventListener('click', (e) => {
-              e.stopPropagation(); // Prevent card tap
-              const entityId = badge.getAttribute('data-entity');
-              if (entityId) {
-                  const event = new Event('hass-more-info', {
-                      bubbles: true,
-                      composed: true,
-                  });
-                  event.detail = { entityId };
-                  this.dispatchEvent(event);
+              e.stopPropagation();
+              const index = parseInt(badge.getAttribute('data-index'));
+              const room = this._config.rooms[index];
+              
+              // Check for tap_action configuration
+              if (room.tap_action) {
+                  this._handleTapAction(room.tap_action, room);
+              } else {
+                  // Default: open more-info for primary entity
+                  this._fireMoreInfo(room.entity);
               }
           });
       });
     }
     
+    _handleTapAction(action, room) {
+        switch (action.action) {
+            case 'navigate':
+                if (action.navigation_path) {
+                    history.pushState(null, '', action.navigation_path);
+                    window.dispatchEvent(new Event('location-changed'));
+                }
+                break;
+            case 'more-info':
+                // Open specific entity or default to room entity
+                this._fireMoreInfo(action.entity || room.entity);
+                break;
+            case 'more-info-all':
+                // Open more-info dialogs for all entities in sequence
+                this._openMultipleMoreInfo(room);
+                break;
+            default:
+                this._fireMoreInfo(room.entity);
+        }
+    }
+    
+    _fireMoreInfo(entityId) {
+        if (!entityId) return;
+        const event = new Event('hass-more-info', {
+            bubbles: true,
+            composed: true,
+        });
+        event.detail = { entityId };
+        this.dispatchEvent(event);
+    }
+    
+    _openMultipleMoreInfo(room) {
+        // Collect all entities for this room
+        const entities = [room.entity];
+        if (room.humidity_entity) entities.push(room.humidity_entity);
+        if (room.co2_entity) entities.push(room.co2_entity);
+        
+        // Open a browser_mod popup if available, otherwise show first entity
+        if (this._hass.services.browser_mod?.popup) {
+            // Use browser_mod popup with history graph
+            const content = {
+                type: 'vertical-stack',
+                cards: entities.map(entity => ({
+                    type: 'history-graph',
+                    entities: [{ entity }],
+                    hours_to_show: 24
+                }))
+            };
+            this._hass.callService('browser_mod', 'popup', {
+                title: room.name,
+                content: content,
+                size: 'wide'
+            });
+        } else {
+            // Fallback: just open the first entity
+            this._fireMoreInfo(room.entity);
+        }
+    }
+
     _getTempColorClass(t) {
       if (t < 19) return 'is-cold'; if (t < 23) return 'is-optimal'; if (t < 25) return 'is-warm'; return 'is-hot';
     }
@@ -517,6 +582,7 @@ class HouseCard extends HTMLElement {
               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
               background-size: cover; 
               background-position: center calc(50% + var(--image-y-offset, 0px));
+              transform: scale(var(--background-zoom, 1));
               z-index: 0; transition: all 0.5s ease;
           }
           .dim-layer {
