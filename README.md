@@ -33,6 +33,7 @@ language: "en"        # Options: 'en', 'pl'
 # --- Global Visual Adjustments ---
 scale: 1.0            # Scale factor for badges (0.8 = smaller, 1.2 = larger)
 image_y_offset: 0     # Vertical shift for background image in pixels
+background_zoom: 1.0  # Zoom factor for background image (e.g., 0.8 = zoom out, 1.2 = zoom in)
 
 # --- Image Path ---
 image_path: "/local/community/house-card/images/"
