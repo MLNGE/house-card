@@ -4,8 +4,9 @@
  * * FEAT: Full Width Support (Sections View).
  * * FEAT: Global Scale & Y-Offset.
  * * FEAT: Humidity & Custom Units.
+ * * FEAT: Moon phases with realistic rendering.
  * 
- * @version 1.4.0
+ * @version 1.5.0
  */
 
 const TRANSLATIONS = {
@@ -26,6 +27,9 @@ class HouseCard extends HTMLElement {
       this._particles = []; this._clouds = []; this._stars = []; this._fogParticles = [];
       this._lightningTimer = 0; this._flashOpacity = 0; this._lightningBolt = null;
       
+      // Moon tracking
+      this._moonGlowPhase = 0;
+      
       // Visibility tracking
       this._isVisible = false;
       this._intersectionObserver = null;
@@ -43,6 +47,11 @@ class HouseCard extends HTMLElement {
         weather_entity: "weather.forecast_home",
         season_entity: "sensor.season",
         sun_entity: "sun.sun",
+        moon_entity: "sensor.moon_phase",
+        moon_position_x: 85,
+        moon_position_y: 15,
+        moon_size: 1.0,
+        moon_glow: true,
         cloud_coverage_entity: "sensor.openweathermap_cloud_coverage",
         party_mode_entity: "input_boolean.gaming_mode",
         rooms: [
@@ -565,6 +574,225 @@ class HouseCard extends HTMLElement {
         return 0;
     }
 
+    _getMoonPhase() {
+        // Try to get from Home Assistant entity first
+        const moonEnt = this._config.moon_entity || 'sensor.moon_phase';
+        if (this._hass.states[moonEnt]) {
+            return this._hass.states[moonEnt].state;
+        }
+        // Fallback: calculate astronomically
+        return this._calculateMoonPhase();
+    }
+
+    _calculateMoonPhase() {
+        // Astronomical calculation based on synodic month
+        // Known new moon: January 6, 2000 18:14 UTC
+        const knownNewMoon = new Date('2000-01-06T18:14:00Z').getTime();
+        const synodicMonth = 29.53058867; // days
+        const now = Date.now();
+        const daysSinceNew = (now - knownNewMoon) / (1000 * 60 * 60 * 24);
+        const moonAge = daysSinceNew % synodicMonth;
+        const phase = moonAge / synodicMonth; // 0 to 1
+        
+        // Map to phase names
+        if (phase < 0.0625) return 'new_moon';
+        if (phase < 0.1875) return 'waxing_crescent';
+        if (phase < 0.3125) return 'first_quarter';
+        if (phase < 0.4375) return 'waxing_gibbous';
+        if (phase < 0.5625) return 'full_moon';
+        if (phase < 0.6875) return 'waning_gibbous';
+        if (phase < 0.8125) return 'last_quarter';
+        if (phase < 0.9375) return 'waning_crescent';
+        return 'new_moon';
+    }
+
+    _drawMoon(cloudCoverage) {
+        const sunEnt = this._config.sun_entity || 'sun.sun';
+        const isNight = this._hass.states[sunEnt]?.state === 'below_horizon';
+        if (!isNight) return; // Only draw moon at night
+        
+        const phase = this._getMoonPhase();
+        if (phase === 'new_moon') return; // New moon is not visible
+        
+        const posX = (this._config.moon_position_x ?? 85) / 100 * this._canvas.width;
+        const posY = (this._config.moon_position_y ?? 15) / 100 * this._canvas.height;
+        const baseSize = 18 * (this._config.moon_size ?? 1.0);
+        
+        // Cloud occlusion - reduce visibility when cloudy
+        const cloudOcclusion = Math.max(0, 1 - (cloudCoverage / 100) * 0.8);
+        if (cloudOcclusion <= 0.1) return;
+        
+        this._ctx.save();
+        this._ctx.globalAlpha = cloudOcclusion;
+        
+        // Draw glow first (behind the moon)
+        if (this._config.moon_glow !== false) {
+            this._drawMoonGlow(posX, posY, baseSize, phase);
+        }
+        
+        // Draw moon base (lit portion)
+        this._ctx.beginPath();
+        this._ctx.arc(posX, posY, baseSize, 0, Math.PI * 2);
+        
+        // Moon surface gradient
+        const surfaceGrad = this._ctx.createRadialGradient(
+            posX - baseSize * 0.3, posY - baseSize * 0.3, 0,
+            posX, posY, baseSize
+        );
+        surfaceGrad.addColorStop(0, '#FFFEF0');
+        surfaceGrad.addColorStop(0.5, '#F5F5DC');
+        surfaceGrad.addColorStop(1, '#E8E4D4');
+        this._ctx.fillStyle = surfaceGrad;
+        this._ctx.fill();
+        
+        // Draw subtle crater texture
+        this._drawMoonCraters(posX, posY, baseSize);
+        
+        // Draw phase shadow
+        this._drawPhaseShadow(posX, posY, baseSize, phase);
+        
+        this._ctx.restore();
+    }
+
+    _drawMoonGlow(x, y, size, phase) {
+        // Animate glow intensity
+        this._moonGlowPhase += 0.02;
+        const glowPulse = 1 + Math.sin(this._moonGlowPhase) * 0.1;
+        
+        // Glow intensity based on phase (full moon = brightest)
+        let glowIntensity = 0.3;
+        if (phase === 'full_moon') glowIntensity = 0.6;
+        else if (phase.includes('gibbous')) glowIntensity = 0.45;
+        else if (phase.includes('quarter')) glowIntensity = 0.35;
+        else if (phase.includes('crescent')) glowIntensity = 0.25;
+        
+        // Outer glow
+        const outerGlow = this._ctx.createRadialGradient(x, y, size * 0.5, x, y, size * 4 * glowPulse);
+        outerGlow.addColorStop(0, `rgba(255, 255, 240, ${glowIntensity * 0.5})`);
+        outerGlow.addColorStop(0.4, `rgba(230, 230, 200, ${glowIntensity * 0.2})`);
+        outerGlow.addColorStop(1, 'rgba(200, 200, 180, 0)');
+        
+        this._ctx.fillStyle = outerGlow;
+        this._ctx.beginPath();
+        this._ctx.arc(x, y, size * 4 * glowPulse, 0, Math.PI * 2);
+        this._ctx.fill();
+        
+        // Inner halo
+        const innerGlow = this._ctx.createRadialGradient(x, y, size, x, y, size * 1.8);
+        innerGlow.addColorStop(0, `rgba(255, 255, 245, ${glowIntensity})`);
+        innerGlow.addColorStop(1, 'rgba(255, 255, 240, 0)');
+        
+        this._ctx.fillStyle = innerGlow;
+        this._ctx.beginPath();
+        this._ctx.arc(x, y, size * 1.8, 0, Math.PI * 2);
+        this._ctx.fill();
+    }
+
+    _drawMoonCraters(x, y, size) {
+        // Subtle crater marks
+        const craters = [
+            { dx: -0.3, dy: -0.2, r: 0.15, a: 0.08 },
+            { dx: 0.2, dy: 0.3, r: 0.12, a: 0.06 },
+            { dx: -0.1, dy: 0.4, r: 0.1, a: 0.05 },
+            { dx: 0.35, dy: -0.1, r: 0.08, a: 0.04 },
+            { dx: 0.1, dy: -0.35, r: 0.1, a: 0.05 },
+        ];
+        
+        craters.forEach(c => {
+            this._ctx.beginPath();
+            this._ctx.arc(x + c.dx * size, y + c.dy * size, c.r * size, 0, Math.PI * 2);
+            this._ctx.fillStyle = `rgba(180, 175, 160, ${c.a})`;
+            this._ctx.fill();
+        });
+    }
+
+    _drawPhaseShadow(x, y, size, phase) {
+        // Determine shadow parameters based on phase
+        let shadowSide = 'left'; // Which side is in shadow
+        let illumination = 0.5;   // 0 = new moon, 1 = full moon
+        
+        switch (phase) {
+            case 'new_moon':
+                illumination = 0;
+                break;
+            case 'waxing_crescent':
+                shadowSide = 'left';
+                illumination = 0.15;
+                break;
+            case 'first_quarter':
+                shadowSide = 'left';
+                illumination = 0.5;
+                break;
+            case 'waxing_gibbous':
+                shadowSide = 'left';
+                illumination = 0.85;
+                break;
+            case 'full_moon':
+                illumination = 1;
+                return; // No shadow needed
+            case 'waning_gibbous':
+                shadowSide = 'right';
+                illumination = 0.85;
+                break;
+            case 'last_quarter':
+                shadowSide = 'right';
+                illumination = 0.5;
+                break;
+            case 'waning_crescent':
+                shadowSide = 'right';
+                illumination = 0.15;
+                break;
+        }
+        
+        // Create clipping region for the moon circle
+        this._ctx.save();
+        this._ctx.beginPath();
+        this._ctx.arc(x, y, size, 0, Math.PI * 2);
+        this._ctx.clip();
+        
+        // Draw shadow using an ellipse that creates the phase effect
+        // The ellipse width varies based on illumination
+        const ellipseWidth = size * Math.abs(1 - illumination * 2);
+        const shadowX = shadowSide === 'left' 
+            ? x - size * (1 - illumination) 
+            : x + size * (1 - illumination);
+        
+        this._ctx.beginPath();
+        
+        if (illumination < 0.5) {
+            // Less than half lit - shadow covers most of moon
+            // Draw shadow as large area with lit crescent
+            this._ctx.fillStyle = 'rgba(15, 20, 30, 0.95)';
+            this._ctx.fillRect(x - size - 1, y - size - 1, size * 2 + 2, size * 2 + 2);
+            
+            // Cut out the lit crescent
+            this._ctx.globalCompositeOperation = 'destination-out';
+            this._ctx.beginPath();
+            this._ctx.ellipse(
+                shadowSide === 'left' ? x + size * (0.5 - illumination) : x - size * (0.5 - illumination),
+                y,
+                ellipseWidth,
+                size,
+                0, 0, Math.PI * 2
+            );
+            this._ctx.fill();
+            this._ctx.globalCompositeOperation = 'source-over';
+        } else {
+            // More than half lit - shadow is the smaller part
+            this._ctx.ellipse(
+                shadowSide === 'left' ? x - size * (illumination - 0.5) : x + size * (illumination - 0.5),
+                y,
+                ellipseWidth,
+                size,
+                0, 0, Math.PI * 2
+            );
+            this._ctx.fillStyle = 'rgba(15, 20, 30, 0.95)';
+            this._ctx.fill();
+        }
+        
+        this._ctx.restore();
+    }
+
     _render() {
       this.shadowRoot.innerHTML = `
         <style>
@@ -791,6 +1019,7 @@ class HouseCard extends HTMLElement {
       this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
 
       if (isNight) this._drawStars(coverage);
+      if (isNight) this._drawMoon(coverage);
       if (wState === 'fog' || (isNight && ['rainy','cloudy'].includes(wState))) this._drawFog(moveSpeed);
 
       if ((wState && !['clear-night','sunny'].includes(wState)) || coverage > 20) {
