@@ -8,7 +8,7 @@
  * * FEAT: Shooting stars at night.
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
  * 
- * @version 1.7.0
+ * @version 1.8.0
  */
 
 const TRANSLATIONS = {
@@ -180,7 +180,7 @@ class HouseCard extends HTMLElement {
     }
 
     _calculateImage() {
-        const path = this._config.image_path || "/local/community/fork_u-house_card/images/";
+        const path = this._config.image_path || "/local/community/house-card/images/";
         const sunState = this._hass.states[this._config.sun_entity || 'sun.sun']?.state || 'above_horizon';
         const timeOfDay = sunState === 'below_horizon' ? 'night' : 'day';
 
