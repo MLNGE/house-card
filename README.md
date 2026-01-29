@@ -1,5 +1,7 @@
 # 🏠 House Card Farmie
 
+![alt text](image.png)
+
 A custom Lovelace card for Home Assistant that displays an animated isometric house with dynamic weather effects, sensor badges, interactive window lights, and navigation hotspots.
 
 ## Features
