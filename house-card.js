@@ -8,7 +8,7 @@
  * * FEAT: Shooting stars at night.
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
  * 
- * @version 1.6.0
+ * @version 1.7.0
  */
 
 const TRANSLATIONS = {
@@ -191,7 +191,7 @@ class HouseCard extends HTMLElement {
             return `${path}winter_xmas_${timeOfDay}.png`;
         }
 
-        let season = this._hass.states[this._config.season_entity]?.state || 'summer';
+        let season = this._config.test_season_state || this._hass.states[this._config.season_entity]?.state || 'summer';
         season = season.toLowerCase();
 
         const wStateRaw = this._hass.states[this._config.weather_entity]?.state;
