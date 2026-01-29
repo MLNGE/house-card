@@ -7,8 +7,7 @@
  */
 
 const TRANSLATIONS = {
-    en: { loading: "Loading...", home_median: "Home" },
-    pl: { loading: "Ładowanie...", home_median: "Dom" }
+    en: { loading: "Loading...", home_median: "Home" }
 };
 
 class HouseCard extends HTMLElement {
@@ -33,7 +32,7 @@ class HouseCard extends HTMLElement {
   
     static getStubConfig() {
       return {
-        language: "pl",
+        language: "en",
         scale: 1.0,
         background_zoom: 1.0,
         image_y_offset: 0,   
@@ -44,8 +43,8 @@ class HouseCard extends HTMLElement {
         cloud_coverage_entity: "sensor.openweathermap_cloud_coverage",
         party_mode_entity: "input_boolean.gaming_mode",
         rooms: [
-            { name: "Salon", entity: "sensor.salon_temp", humidity_entity: "sensor.salon_humidity", co2_entity: "sensor.salon_co2", x: 50, y: 50 },
-            { name: "Moc", entity: "sensor.power", x: 20, y: 80, unit: "W", decimals: 0 }
+            { name: "Living Room", entity: "sensor.salon_temp", humidity_entity: "sensor.salon_humidity", co2_entity: "sensor.salon_co2", x: 50, y: 50 },
+            { name: "Power", entity: "sensor.power", x: 20, y: 80, unit: "W", decimals: 0 }
         ],
         window_lights: [
             { entity: "light.living_room", x: 25, y: 60, width: 8, height: 10, color: "#FFA500" }
@@ -168,8 +167,6 @@ class HouseCard extends HTMLElement {
         }
 
         let season = this._hass.states[this._config.season_entity]?.state || 'summer';
-        const seasonMap = { 'wiosna': 'spring', 'lato': 'summer', 'jesień': 'autumn', 'zima': 'winter' };
-        if (seasonMap[season]) season = seasonMap[season];
         season = season.toLowerCase();
 
         const wStateRaw = this._hass.states[this._config.weather_entity]?.state;

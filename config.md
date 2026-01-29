@@ -1,6 +1,6 @@
 type: custom:house-card
 title: "My Residence" # Optional title (visual only)
-language: "en"        # Options: 'en', 'pl'
+language: "en"
 
 # --- Global Visual Adjustments ---
 scale: 1.0            # Scale factor for badges (e.g., 0.8 = smaller, 1.2 = larger)
