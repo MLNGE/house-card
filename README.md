@@ -17,6 +17,12 @@ A custom Lovelace card for Home Assistant that displays an animated isometric ho
 - **Seasonal Images** - Automatic day/night and seasonal background changes
 - **Christmas Mode** - Special images from Dec 14 - Jan 14
 
+## Support
+
+If you enjoy this card and want to support its development, you can buy me a coffee!
+
+[![Buy Me A Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://buymeacoffee.com/timgerr)
+
 ## Installation
 
 ### HACS (Recommended)
