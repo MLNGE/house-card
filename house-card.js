@@ -8,7 +8,7 @@
  * * FEAT: Shooting stars at night.
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
  * 
- * @version 1.8.0
+ * @version 1.9.0
  */
 
 const TRANSLATIONS = {
@@ -182,7 +182,7 @@ class HouseCard extends HTMLElement {
     _calculateImage() {
         const path = this._config.image_path || "/local/community/house-card/images/";
         const sunState = this._hass.states[this._config.sun_entity || 'sun.sun']?.state || 'above_horizon';
-        const timeOfDay = sunState === 'below_horizon' ? 'night' : 'day';
+        const timeOfDay = this._config.test_time_of_day || (sunState === 'below_horizon' ? 'night' : 'day');
 
         const now = new Date();
         const month = now.getMonth() + 1;
@@ -1026,7 +1026,9 @@ class HouseCard extends HTMLElement {
       let moveSpeed = speed / 15; if (moveSpeed < 0.2) moveSpeed = 0.2; if (moveSpeed > 6) moveSpeed = 6;
       
       const sunEnt = this._config.sun_entity || 'sun.sun';
-      const isNight = this._hass.states[sunEnt]?.state === 'below_horizon';
+      const isNight = this._config.test_time_of_day 
+          ? this._config.test_time_of_day === 'night'
+          : this._hass.states[sunEnt]?.state === 'below_horizon';
       const coverage = this._getCloudCoverage();
 
       this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);

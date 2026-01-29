@@ -55,8 +55,10 @@ img_winter_night_fog: false
 # --- Testing ---
 # Force a specific weather state to test animations (fog, lightning, snowy, rainy, pouring)
 # test_weather_state: fog 
-# Force a specific season to test seasonal particles (spring, summer, autumn, winter)
+# Force a specific season to test seasonal particles and background (spring, summer, autumn, winter)
 # test_season_state: autumn
+# Force day or night mode to test backgrounds and night animations (day, night)
+# test_time_of_day: night
 
 # --- Core Entities (REQUIRED) ---
 weather_entity: weather.forecast_home
