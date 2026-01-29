@@ -4,14 +4,16 @@ A custom Lovelace card for Home Assistant that displays an animated isometric ho
 
 ## Features
 
-- 🌦️ **Weather Animations** - Rain, snow, fog, lightning, clouds, and stars
-- � **Moon Phases** - Realistic moon rendering with all 8 phases and animated glow- 🌠 **Shooting Stars** - Occasional shooting stars streak across the night sky
-- 🍂 **Seasonal Particles** - Autumn leaves and spring cherry blossom petals- �🌡️ **Sensor Badges** - Display temperature, humidity, CO2, power consumption
-- 💡 **Window Lights** - Link light entities to windows (glow when on, dark when off)
-- 🔗 **Navigation Links** - Clickable hotspots to navigate to other HA views
-- 🎮 **Gaming/Party Mode** - Ambient lighting effects
-- 🎄 **Seasonal Images** - Automatic day/night and seasonal background changes
-- 🎅 **Christmas Mode** - Special images from Dec 14 - Jan 14
+- **Weather Animations** - Rain, snow, fog, lightning, clouds, and stars
+- **Moon Phases** - Realistic moon rendering with all 8 phases and animated glow
+- **Shooting Stars** - Occasional shooting stars streak across the night sky
+- **Seasonal Particles** - Autumn leaves and spring cherry blossom petals
+- **Sensor Badges** - Display temperature, humidity, CO2, power consumption
+- **Window Lights** - Link light entities to windows (glow when on, dark when off)
+- **Navigation Links** - Clickable hotspots to navigate to other HA views
+- **Gaming/Party Mode** - Ambient lighting effects
+- **Seasonal Images** - Automatic day/night and seasonal background changes
+- **Christmas Mode** - Special images from Dec 14 - Jan 14
 
 ## Installation
 
