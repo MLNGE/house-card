@@ -33,6 +33,7 @@ language: "en"
 # --- Global Visual Adjustments ---
 scale: 1.0            # Scale factor for badges (0.8 = smaller, 1.2 = larger)
 background_zoom: 1.0  # Zoom factor for background image (0.8 = zoom out, 1.2 = zoom in)
+image_x_offset: 0     # Horizontal shift for background image in pixels (Negative = LEFT, Positive = RIGHT)
 image_y_offset: 0     # Vertical shift for background image in pixels (Negative = UP, Positive = DOWN)
 
 # --- Image Path ---

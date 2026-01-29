@@ -35,6 +35,7 @@ class HouseCard extends HTMLElement {
         language: "en",
         scale: 1.0,
         background_zoom: 1.0,
+        image_x_offset: 0,
         image_y_offset: 0,   
         image: "/local/community/house-card/images/",
         weather_entity: "weather.forecast_home",
@@ -195,11 +196,13 @@ class HouseCard extends HTMLElement {
       const newImage = this._calculateImage();
       
       if (this._currentImageUrl !== newImage || 
+          this._lastXOffset !== this._config.image_x_offset ||
           this._lastYOffset !== this._config.image_y_offset ||
           this._lastScale !== this._config.scale ||
           this._lastBackgroundZoom !== this._config.background_zoom) {
           
           this._currentImageUrl = newImage;
+          this._lastXOffset = this._config.image_x_offset;
           this._lastYOffset = this._config.image_y_offset;
           this._lastScale = this._config.scale;
           this._lastBackgroundZoom = this._config.background_zoom;
@@ -209,8 +212,10 @@ class HouseCard extends HTMLElement {
               const img = new Image();
               img.onload = () => { 
                   bgEl.style.backgroundImage = `url('${newImage}')`;
+                  const xOffset = this._config.image_x_offset || 0;
                   const yOffset = this._config.image_y_offset || 0;
                   const bgZoom = this._config.background_zoom || 1.0;
+                  bgEl.style.setProperty('--image-x-offset', `${xOffset}px`);
                   bgEl.style.setProperty('--image-y-offset', `${yOffset}px`);
                   bgEl.style.setProperty('--background-zoom', bgZoom);
               };
@@ -578,7 +583,7 @@ class HouseCard extends HTMLElement {
           .bg-image {
               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
               background-size: cover; 
-              background-position: center calc(50% + var(--image-y-offset, 0px));
+              background-position: calc(50% + var(--image-x-offset, 0px)) calc(50% + var(--image-y-offset, 0px));
               transform: scale(var(--background-zoom, 1));
               z-index: 0; transition: all 0.5s ease;
           }
