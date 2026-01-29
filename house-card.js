@@ -4,6 +4,8 @@
  * * FEAT: Full Width Support (Sections View).
  * * FEAT: Global Scale & Y-Offset.
  * * FEAT: Humidity & Custom Units.
+ * 
+ * @version 1.4.0
  */
 
 const TRANSLATIONS = {
