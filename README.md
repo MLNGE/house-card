@@ -5,7 +5,8 @@ A custom Lovelace card for Home Assistant that displays an animated isometric ho
 ## Features
 
 - 🌦️ **Weather Animations** - Rain, snow, fog, lightning, clouds, and stars
-- 🌡️ **Sensor Badges** - Display temperature, humidity, CO2, power consumption
+- � **Moon Phases** - Realistic moon rendering with all 8 phases and animated glow- 🌠 **Shooting Stars** - Occasional shooting stars streak across the night sky
+- 🍂 **Seasonal Particles** - Autumn leaves and spring cherry blossom petals- �🌡️ **Sensor Badges** - Display temperature, humidity, CO2, power consumption
 - 💡 **Window Lights** - Link light entities to windows (glow when on, dark when off)
 - 🔗 **Navigation Links** - Clickable hotspots to navigate to other HA views
 - 🎮 **Gaming/Party Mode** - Ambient lighting effects
@@ -52,6 +53,8 @@ img_winter_night_fog: false
 # --- Testing ---
 # Force a specific weather state to test animations (fog, lightning, snowy, rainy, pouring)
 # test_weather_state: fog 
+# Force a specific season to test seasonal particles (spring, summer, autumn, winter)
+# test_season_state: autumn
 
 # --- Core Entities (REQUIRED) ---
 weather_entity: weather.forecast_home
@@ -59,6 +62,23 @@ season_entity: sensor.season
 sun_entity: sun.sun
 cloud_coverage_entity: sensor.openweathermap_cloud_coverage  # Optional (0-100%)
 party_mode_entity: input_boolean.gaming_mode  # Optional: Toggles "Gaming Ambient" light effects
+
+# --- Moon Configuration ---
+# Requires the Moon integration: https://www.home-assistant.io/integrations/moon/
+moon_entity: sensor.moon_phase   # HA moon sensor (falls back to calculated if not set)
+moon_position_x: 85              # Horizontal position % (default: 85)
+moon_position_y: 15              # Vertical position % (default: 15)
+moon_size: 1.0                   # Scale factor (0.5 = smaller, 1.5 = larger)
+moon_glow: true                  # Enable animated glow effect (default: true)
+
+# --- Shooting Stars ---
+shooting_stars: true             # Enable shooting stars at night (default: true)
+shooting_star_frequency: 0.002   # Spawn frequency (0.001 = rare, 0.01 = frequent)
+
+# --- Seasonal Particles ---
+# Autumn: falling leaves | Spring: cherry blossom petals
+seasonal_particles: true         # Enable seasonal particles (default: true)
+seasonal_particle_density: 1.0   # Particle density (0.5 = fewer, 2.0 = more)
 
 # --- Wind Entities (For Animation Speed/Direction) ---
 wind_speed_entity: sensor.wind_speed      # Wind Speed (km/h)

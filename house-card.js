@@ -5,8 +5,10 @@
  * * FEAT: Global Scale & Y-Offset.
  * * FEAT: Humidity & Custom Units.
  * * FEAT: Moon phases with realistic rendering.
+ * * FEAT: Shooting stars at night.
+ * * FEAT: Seasonal particles (autumn leaves, spring petals).
  * 
- * @version 1.5.0
+ * @version 1.6.0
  */
 
 const TRANSLATIONS = {
@@ -26,6 +28,13 @@ class HouseCard extends HTMLElement {
       
       this._particles = []; this._clouds = []; this._stars = []; this._fogParticles = [];
       this._lightningTimer = 0; this._flashOpacity = 0; this._lightningBolt = null;
+      
+      // Shooting stars
+      this._shootingStars = [];
+      this._shootingStarTimer = 0;
+      
+      // Seasonal particles (leaves, petals)
+      this._seasonalParticles = [];
       
       // Moon tracking
       this._moonGlowPhase = 0;
@@ -52,6 +61,10 @@ class HouseCard extends HTMLElement {
         moon_position_y: 15,
         moon_size: 1.0,
         moon_glow: true,
+        shooting_stars: true,
+        shooting_star_frequency: 0.002,
+        seasonal_particles: true,
+        seasonal_particle_density: 1.0,
         cloud_coverage_entity: "sensor.openweathermap_cloud_coverage",
         party_mode_entity: "input_boolean.gaming_mode",
         rooms: [
@@ -1020,6 +1033,8 @@ class HouseCard extends HTMLElement {
 
       if (isNight) this._drawStars(coverage);
       if (isNight) this._drawMoon(coverage);
+      if (isNight && this._config.shooting_stars !== false) this._handleShootingStars(coverage);
+      if (this._config.seasonal_particles !== false) this._drawSeasonalParticles(windDirX, moveSpeed);
       if (wState === 'fog' || (isNight && ['rainy','cloudy'].includes(wState))) this._drawFog(moveSpeed);
 
       if ((wState && !['clear-night','sunny'].includes(wState)) || coverage > 20) {
@@ -1128,6 +1143,275 @@ class HouseCard extends HTMLElement {
           if (p.y > this._canvas.height || p.x > this._canvas.width + 50 || p.x < -50) { this._particles.splice(i, 1); i--; }
       }
       this._ctx.fill();
+    }
+    
+    // --- SHOOTING STARS ---
+    _handleShootingStars(cloudCoverage) {
+        // Don't show shooting stars when too cloudy
+        if (cloudCoverage > 70) return;
+        
+        const frequency = this._config.shooting_star_frequency ?? 0.002;
+        
+        // Randomly spawn shooting stars
+        this._shootingStarTimer++;
+        if (this._shootingStarTimer > 60 && Math.random() < frequency) {
+            this._spawnShootingStar();
+            this._shootingStarTimer = 0;
+        }
+        
+        // Draw and update shooting stars
+        this._shootingStars.forEach((star, index) => {
+            this._drawShootingStar(star);
+            
+            // Update position
+            star.x += star.speedX;
+            star.y += star.speedY;
+            star.life--;
+            star.trail.unshift({ x: star.x, y: star.y });
+            if (star.trail.length > star.trailLength) star.trail.pop();
+            
+            // Remove dead stars
+            if (star.life <= 0 || star.x > this._canvas.width + 50 || star.y > this._canvas.height + 50) {
+                this._shootingStars.splice(index, 1);
+            }
+        });
+    }
+    
+    _spawnShootingStar() {
+        // Start from random position in upper portion of sky
+        const startX = Math.random() * this._canvas.width * 0.8;
+        const startY = Math.random() * this._canvas.height * 0.3;
+        
+        // Random angle (generally downward diagonal)
+        const angle = (Math.PI / 6) + Math.random() * (Math.PI / 4); // 30-75 degrees
+        const speed = 8 + Math.random() * 6;
+        
+        this._shootingStars.push({
+            x: startX,
+            y: startY,
+            speedX: Math.cos(angle) * speed,
+            speedY: Math.sin(angle) * speed,
+            size: 1.5 + Math.random() * 1.5,
+            life: 40 + Math.random() * 30,
+            trail: [],
+            trailLength: 12 + Math.floor(Math.random() * 8),
+            brightness: 0.8 + Math.random() * 0.2
+        });
+    }
+    
+    _drawShootingStar(star) {
+        // Draw the trail with fading effect
+        if (star.trail.length > 1) {
+            this._ctx.beginPath();
+            this._ctx.moveTo(star.x, star.y);
+            
+            for (let i = 0; i < star.trail.length; i++) {
+                const point = star.trail[i];
+                const alpha = (1 - i / star.trail.length) * star.brightness * 0.6;
+                
+                this._ctx.lineTo(point.x, point.y);
+            }
+            
+            // Create gradient for trail
+            const gradient = this._ctx.createLinearGradient(
+                star.x, star.y,
+                star.trail[star.trail.length - 1]?.x || star.x,
+                star.trail[star.trail.length - 1]?.y || star.y
+            );
+            gradient.addColorStop(0, `rgba(255, 255, 255, ${star.brightness})`);
+            gradient.addColorStop(0.3, `rgba(200, 220, 255, ${star.brightness * 0.6})`);
+            gradient.addColorStop(1, 'rgba(150, 180, 255, 0)');
+            
+            this._ctx.strokeStyle = gradient;
+            this._ctx.lineWidth = star.size;
+            this._ctx.lineCap = 'round';
+            this._ctx.stroke();
+        }
+        
+        // Draw the bright head
+        this._ctx.beginPath();
+        this._ctx.arc(star.x, star.y, star.size * 1.2, 0, Math.PI * 2);
+        this._ctx.fillStyle = `rgba(255, 255, 255, ${star.brightness})`;
+        this._ctx.fill();
+        
+        // Glow effect
+        const glow = this._ctx.createRadialGradient(star.x, star.y, 0, star.x, star.y, star.size * 4);
+        glow.addColorStop(0, `rgba(200, 220, 255, ${star.brightness * 0.5})`);
+        glow.addColorStop(1, 'rgba(200, 220, 255, 0)');
+        this._ctx.fillStyle = glow;
+        this._ctx.beginPath();
+        this._ctx.arc(star.x, star.y, star.size * 4, 0, Math.PI * 2);
+        this._ctx.fill();
+    }
+    
+    // --- SEASONAL PARTICLES ---
+    _drawSeasonalParticles(windDirX, windSpeed) {
+        const seasonEnt = this._config.season_entity;
+        const season = this._config.test_season_state || this._hass.states[seasonEnt]?.state?.toLowerCase() || 'summer';
+        
+        // Only show particles in autumn and spring
+        if (season !== 'autumn' && season !== 'fall' && season !== 'spring') {
+            this._seasonalParticles = [];
+            return;
+        }
+        
+        const density = this._config.seasonal_particle_density ?? 1.0;
+        const maxParticles = Math.floor(25 * density);
+        
+        // Spawn new particles
+        if (this._seasonalParticles.length < maxParticles && Math.random() < 0.1) {
+            this._spawnSeasonalParticle(season, windDirX);
+        }
+        
+        // Draw and update particles
+        this._seasonalParticles.forEach((p, index) => {
+            this._drawSeasonalParticle(p, season);
+            
+            // Update position with swaying motion
+            p.x += (windDirX * windSpeed * 0.8) + Math.sin(p.swayOffset + Date.now() * 0.002) * p.swayAmount;
+            p.y += p.fallSpeed;
+            p.rotation += p.rotationSpeed;
+            p.swayOffset += 0.02;
+            
+            // Remove particles that are off screen
+            if (p.y > this._canvas.height + 20 || p.x < -50 || p.x > this._canvas.width + 50) {
+                this._seasonalParticles.splice(index, 1);
+            }
+        });
+    }
+    
+    _spawnSeasonalParticle(season, windDirX) {
+        const isAutumn = season === 'autumn' || season === 'fall';
+        
+        // Spawn from top or side depending on wind
+        const fromSide = Math.random() < 0.3;
+        const startX = fromSide 
+            ? (windDirX > 0 ? -20 : this._canvas.width + 20)
+            : Math.random() * this._canvas.width;
+        const startY = fromSide 
+            ? Math.random() * this._canvas.height * 0.5
+            : -20;
+        
+        if (isAutumn) {
+            // Autumn leaf colors
+            const colors = [
+                { fill: '#D2691E', stroke: '#8B4513' }, // Brown/Sienna
+                { fill: '#FF8C00', stroke: '#CC7000' }, // Dark Orange
+                { fill: '#CD853F', stroke: '#8B6914' }, // Peru
+                { fill: '#B22222', stroke: '#8B0000' }, // Firebrick/Red
+                { fill: '#DAA520', stroke: '#B8860B' }, // Goldenrod
+                { fill: '#FF6347', stroke: '#CD4F39' }, // Tomato red
+            ];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            
+            this._seasonalParticles.push({
+                type: 'leaf',
+                x: startX,
+                y: startY,
+                size: 6 + Math.random() * 6,
+                rotation: Math.random() * Math.PI * 2,
+                rotationSpeed: (Math.random() - 0.5) * 0.08,
+                fallSpeed: 0.8 + Math.random() * 1.2,
+                swayAmount: 1 + Math.random() * 2,
+                swayOffset: Math.random() * Math.PI * 2,
+                color: color,
+                leafShape: Math.floor(Math.random() * 3) // 0=maple, 1=oak, 2=simple
+            });
+        } else {
+            // Spring petal colors
+            const colors = [
+                { fill: 'rgba(255, 182, 193, 0.9)', stroke: 'rgba(255, 105, 180, 0.6)' }, // Pink
+                { fill: 'rgba(255, 255, 255, 0.9)', stroke: 'rgba(255, 192, 203, 0.6)' }, // White/Pink
+                { fill: 'rgba(255, 218, 233, 0.9)', stroke: 'rgba(255, 160, 200, 0.6)' }, // Light pink
+                { fill: 'rgba(230, 230, 250, 0.9)', stroke: 'rgba(200, 180, 230, 0.6)' }, // Lavender
+            ];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            
+            this._seasonalParticles.push({
+                type: 'petal',
+                x: startX,
+                y: startY,
+                size: 4 + Math.random() * 4,
+                rotation: Math.random() * Math.PI * 2,
+                rotationSpeed: (Math.random() - 0.5) * 0.05,
+                fallSpeed: 0.5 + Math.random() * 0.8,
+                swayAmount: 1.5 + Math.random() * 2,
+                swayOffset: Math.random() * Math.PI * 2,
+                color: color
+            });
+        }
+    }
+    
+    _drawSeasonalParticle(p, season) {
+        this._ctx.save();
+        this._ctx.translate(p.x, p.y);
+        this._ctx.rotate(p.rotation);
+        
+        if (p.type === 'leaf') {
+            this._drawLeaf(p);
+        } else {
+            this._drawPetal(p);
+        }
+        
+        this._ctx.restore();
+    }
+    
+    _drawLeaf(p) {
+        const size = p.size;
+        this._ctx.fillStyle = p.color.fill;
+        this._ctx.strokeStyle = p.color.stroke;
+        this._ctx.lineWidth = 0.5;
+        
+        this._ctx.beginPath();
+        
+        if (p.leafShape === 0) {
+            // Maple-like leaf (simplified)
+            this._ctx.moveTo(0, -size);
+            this._ctx.quadraticCurveTo(size * 0.5, -size * 0.5, size, -size * 0.3);
+            this._ctx.quadraticCurveTo(size * 0.6, 0, size * 0.8, size * 0.5);
+            this._ctx.quadraticCurveTo(size * 0.3, size * 0.3, 0, size);
+            this._ctx.quadraticCurveTo(-size * 0.3, size * 0.3, -size * 0.8, size * 0.5);
+            this._ctx.quadraticCurveTo(-size * 0.6, 0, -size, -size * 0.3);
+            this._ctx.quadraticCurveTo(-size * 0.5, -size * 0.5, 0, -size);
+        } else if (p.leafShape === 1) {
+            // Oak-like leaf (rounded lobes)
+            this._ctx.moveTo(0, -size);
+            this._ctx.bezierCurveTo(size * 0.8, -size * 0.6, size * 0.6, size * 0.2, size * 0.3, size);
+            this._ctx.lineTo(0, size * 0.7);
+            this._ctx.lineTo(-size * 0.3, size);
+            this._ctx.bezierCurveTo(-size * 0.6, size * 0.2, -size * 0.8, -size * 0.6, 0, -size);
+        } else {
+            // Simple oval leaf
+            this._ctx.ellipse(0, 0, size * 0.5, size, 0, 0, Math.PI * 2);
+        }
+        
+        this._ctx.closePath();
+        this._ctx.fill();
+        this._ctx.stroke();
+        
+        // Draw vein
+        this._ctx.beginPath();
+        this._ctx.moveTo(0, -size * 0.8);
+        this._ctx.lineTo(0, size * 0.8);
+        this._ctx.strokeStyle = p.color.stroke;
+        this._ctx.lineWidth = 0.3;
+        this._ctx.stroke();
+    }
+    
+    _drawPetal(p) {
+        const size = p.size;
+        this._ctx.fillStyle = p.color.fill;
+        this._ctx.strokeStyle = p.color.stroke;
+        this._ctx.lineWidth = 0.5;
+        
+        // Draw petal shape (teardrop/oval)
+        this._ctx.beginPath();
+        this._ctx.moveTo(0, -size);
+        this._ctx.bezierCurveTo(size * 0.8, -size * 0.5, size * 0.8, size * 0.5, 0, size);
+        this._ctx.bezierCurveTo(-size * 0.8, size * 0.5, -size * 0.8, -size * 0.5, 0, -size);
+        this._ctx.closePath();
+        this._ctx.fill();
+        this._ctx.stroke();
     }
     
     _handleLightning() {

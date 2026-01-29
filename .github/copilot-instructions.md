@@ -2,6 +2,8 @@
 
 KEEP IN MINID THE VERSIONING WHEN CHANGING CODE. WATCH OUT ONLY ONE INCREMENT PER COMMIT.
 
+Also think about updating the readme and changelog if necessary.
+
 This project is a custom Lovelace card for Home Assistant, implemented as a vanilla JavaScript Web Component (`HTMLElement`). It visualizes a house with overlaid sensor badges and weather animations.
 
 ## Core Architecture
