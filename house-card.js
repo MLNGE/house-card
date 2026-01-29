@@ -7,8 +7,9 @@
  * * FEAT: Moon phases with realistic rendering.
  * * FEAT: Shooting stars at night.
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
+ * * FEAT: Walking Bernese Mountain Dog in garden.
  * 
- * @version 1.10.0
+ * @version 1.11.0
  */
 
 const TRANSLATIONS = {
@@ -35,6 +36,10 @@ class HouseCard extends HTMLElement {
       
       // Seasonal particles (leaves, petals)
       this._seasonalParticles = [];
+      
+      // Dog animation
+      this._dogs = [];
+      this._dogSpawnTimer = 0;
       
       // Moon tracking
       this._moonGlowPhase = 0;
@@ -65,6 +70,10 @@ class HouseCard extends HTMLElement {
         shooting_star_frequency: 0.002,
         seasonal_particles: true,
         seasonal_particle_density: 1.0,
+        dog_enabled: true,
+        dog_frequency: 0.003,
+        dog_speed: 1.0,
+        dog_size: 1.0,
         cloud_coverage_entity: "sensor.openweathermap_cloud_coverage",
         party_mode_entity: "input_boolean.gaming_mode",
         rooms: [
@@ -1052,6 +1061,7 @@ class HouseCard extends HTMLElement {
       if (isNight) this._drawMoon(coverage);
       if (isNight && this._config.shooting_stars !== false) this._handleShootingStars(coverage);
       if (this._config.seasonal_particles !== false) this._drawSeasonalParticles(windDirX, moveSpeed);
+      if (this._config.dog_enabled !== false) this._handleDog();
       if (wState === 'fog' || (isNight && ['rainy','cloudy'].includes(wState))) this._drawFog(moveSpeed);
 
       if ((wState && !['clear-night','sunny'].includes(wState)) || coverage > 20) {
@@ -1458,6 +1468,194 @@ class HouseCard extends HTMLElement {
     _drawBolt(bolt) {
         this._ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'; this._ctx.lineWidth = 2; this._ctx.beginPath();
         this._ctx.moveTo(bolt.path[0].x, bolt.path[0].y); for(let p of bolt.path) this._ctx.lineTo(p.x, p.y); this._ctx.stroke();
+    }
+    
+    // --- WALKING DOG ---
+    _handleDog() {
+        const frequency = this._config.dog_frequency ?? 0.003;
+        
+        // Randomly spawn a dog
+        this._dogSpawnTimer++;
+        if (this._dogSpawnTimer > 100 && this._dogs.length === 0 && Math.random() < frequency) {
+            this._spawnDog();
+            this._dogSpawnTimer = 0;
+        }
+        
+        // Draw and update dogs
+        this._dogs.forEach((dog, index) => {
+            this._drawDog(dog);
+            
+            // Update position
+            dog.x += dog.speed * dog.direction;
+            dog.walkCycle += 0.15;
+            
+            // Remove dog when off screen
+            if ((dog.direction > 0 && dog.x > this._canvas.width + 100) || 
+                (dog.direction < 0 && dog.x < -100)) {
+                this._dogs.splice(index, 1);
+            }
+        });
+    }
+    
+    _spawnDog() {
+        const direction = Math.random() > 0.5 ? 1 : -1; // 1 = right, -1 = left
+        const speed = (this._config.dog_speed ?? 1.0) * (0.8 + Math.random() * 0.4);
+        const size = (this._config.dog_size ?? 1.0) * (0.9 + Math.random() * 0.2);
+        
+        this._dogs.push({
+            x: direction > 0 ? -80 : this._canvas.width + 80,
+            y: this._canvas.height * 0.85, // Position in the garden (lower part)
+            direction: direction,
+            speed: speed,
+            size: size,
+            walkCycle: 0
+        });
+    }
+    
+    _drawDog(dog) {
+        this._ctx.save();
+        this._ctx.translate(dog.x, dog.y);
+        
+        // Flip horizontally if walking left
+        if (dog.direction < 0) {
+            this._ctx.scale(-1, 1);
+        }
+        
+        const scale = dog.size * 0.8;
+        this._ctx.scale(scale, scale);
+        
+        // Body dimensions
+        const bodyWidth = 50;
+        const bodyHeight = 30;
+        const headSize = 22;
+        const legHeight = 25;
+        
+        // Leg animation (walking cycle)
+        const legAngle1 = Math.sin(dog.walkCycle) * 0.4;
+        const legAngle2 = Math.sin(dog.walkCycle + Math.PI) * 0.4;
+        
+        // --- Draw Back Legs ---
+        this._ctx.fillStyle = '#1a1a1a'; // Black
+        
+        // Back left leg
+        this._ctx.save();
+        this._ctx.translate(-12, 10);
+        this._ctx.rotate(legAngle1);
+        this._ctx.fillRect(-3, 0, 6, legHeight);
+        // White paw
+        this._ctx.fillStyle = '#ffffff';
+        this._ctx.fillRect(-3, legHeight - 5, 6, 5);
+        this._ctx.restore();
+        
+        // Back right leg
+        this._ctx.fillStyle = '#1a1a1a';
+        this._ctx.save();
+        this._ctx.translate(-2, 10);
+        this._ctx.rotate(legAngle2);
+        this._ctx.fillRect(-3, 0, 6, legHeight);
+        // White paw
+        this._ctx.fillStyle = '#ffffff';
+        this._ctx.fillRect(-3, legHeight - 5, 6, 5);
+        this._ctx.restore();
+        
+        // --- Draw Body ---
+        this._ctx.fillStyle = '#1a1a1a'; // Black body
+        this._ctx.beginPath();
+        this._ctx.ellipse(0, 0, bodyWidth / 2, bodyHeight / 2, 0, 0, Math.PI * 2);
+        this._ctx.fill();
+        
+        // White chest marking (Bernese pattern)
+        this._ctx.fillStyle = '#ffffff';
+        this._ctx.beginPath();
+        this._ctx.moveTo(10, -5);
+        this._ctx.quadraticCurveTo(18, 0, 15, 12);
+        this._ctx.quadraticCurveTo(10, 15, 0, 15);
+        this._ctx.quadraticCurveTo(-10, 15, -15, 12);
+        this._ctx.quadraticCurveTo(-18, 0, -10, -5);
+        this._ctx.closePath();
+        this._ctx.fill();
+        
+        // --- Draw Front Legs ---
+        this._ctx.fillStyle = '#1a1a1a';
+        
+        // Front left leg
+        this._ctx.save();
+        this._ctx.translate(12, 10);
+        this._ctx.rotate(legAngle2);
+        this._ctx.fillRect(-3, 0, 6, legHeight);
+        // White paw
+        this._ctx.fillStyle = '#ffffff';
+        this._ctx.fillRect(-3, legHeight - 5, 6, 5);
+        this._ctx.restore();
+        
+        // Front right leg
+        this._ctx.fillStyle = '#1a1a1a';
+        this._ctx.save();
+        this._ctx.translate(22, 10);
+        this._ctx.rotate(legAngle1);
+        this._ctx.fillRect(-3, 0, 6, legHeight);
+        // White paw
+        this._ctx.fillStyle = '#ffffff';
+        this._ctx.fillRect(-3, legHeight - 5, 6, 5);
+        this._ctx.restore();
+        
+        // --- Draw Head ---
+        this._ctx.fillStyle = '#1a1a1a';
+        this._ctx.beginPath();
+        this._ctx.arc(bodyWidth / 2 + 5, -5, headSize / 2, 0, Math.PI * 2);
+        this._ctx.fill();
+        
+        // White muzzle (Bernese pattern)
+        this._ctx.fillStyle = '#ffffff';
+        this._ctx.beginPath();
+        this._ctx.arc(bodyWidth / 2 + 8, 0, 7, 0, Math.PI * 2);
+        this._ctx.fill();
+        
+        // Brown/Rust markings on head (Bernese characteristic)
+        this._ctx.fillStyle = '#8B4513'; // Saddle brown
+        
+        // Brown eyebrow spots
+        this._ctx.beginPath();
+        this._ctx.arc(bodyWidth / 2 + 2, -8, 3, 0, Math.PI * 2);
+        this._ctx.fill();
+        
+        this._ctx.beginPath();
+        this._ctx.arc(bodyWidth / 2 + 10, -8, 3, 0, Math.PI * 2);
+        this._ctx.fill();
+        
+        // --- Draw Ears ---
+        this._ctx.fillStyle = '#1a1a1a';
+        
+        // Left ear
+        this._ctx.beginPath();
+        this._ctx.ellipse(bodyWidth / 2 - 2, -12, 5, 8, -0.3, 0, Math.PI * 2);
+        this._ctx.fill();
+        
+        // Right ear
+        this._ctx.beginPath();
+        this._ctx.ellipse(bodyWidth / 2 + 12, -12, 5, 8, 0.3, 0, Math.PI * 2);
+        this._ctx.fill();
+        
+        // --- Draw Nose ---
+        this._ctx.fillStyle = '#000000';
+        this._ctx.beginPath();
+        this._ctx.arc(bodyWidth / 2 + 13, 2, 2, 0, Math.PI * 2);
+        this._ctx.fill();
+        
+        // --- Draw Tail ---
+        this._ctx.fillStyle = '#1a1a1a';
+        this._ctx.save();
+        this._ctx.translate(-bodyWidth / 2 - 5, -2);
+        this._ctx.rotate(-0.5 + Math.sin(dog.walkCycle * 0.5) * 0.2); // Wagging tail
+        this._ctx.beginPath();
+        this._ctx.moveTo(0, 0);
+        this._ctx.quadraticCurveTo(-8, -5, -15, -3);
+        this._ctx.quadraticCurveTo(-8, -1, 0, 2);
+        this._ctx.closePath();
+        this._ctx.fill();
+        this._ctx.restore();
+        
+        this._ctx.restore();
     }
   }
   
