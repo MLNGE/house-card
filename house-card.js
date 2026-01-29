@@ -8,7 +8,7 @@
  * * FEAT: Shooting stars at night.
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
  * 
- * @version 1.9.0
+ * @version 1.10.0
  */
 
 const TRANSLATIONS = {
@@ -329,22 +329,26 @@ class HouseCard extends HTMLElement {
           </div>`;
       }).join('');
 
-      // 2. Attach Click Listeners
-      container.querySelectorAll('.badge').forEach(badge => {
-          badge.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const index = parseInt(badge.getAttribute('data-index'));
-              const room = this._config.rooms[index];
-              
-              // Check for tap_action configuration
-              if (room.tap_action) {
-                  this._handleTapAction(room.tap_action, room);
-              } else {
-                  // Default: open more-info for primary entity
-                  this._fireMoreInfo(room.entity);
+      // 2. Set up event delegation (only once)
+      if (!this._badgesDelegated) {
+          container.addEventListener('click', (e) => {
+              const badge = e.target.closest('.badge');
+              if (badge) {
+                  e.stopPropagation();
+                  const index = parseInt(badge.getAttribute('data-index'));
+                  const room = this._config.rooms[index];
+                  
+                  // Check for tap_action configuration
+                  if (room && room.tap_action) {
+                      this._handleTapAction(room.tap_action, room);
+                  } else if (room) {
+                      // Default: open more-info for primary entity
+                      this._fireMoreInfo(room.entity);
+                  }
               }
           });
-      });
+          this._badgesDelegated = true;
+      }
     }
     
     _handleTapAction(action, room) {
@@ -478,17 +482,21 @@ class HouseCard extends HTMLElement {
               </div>`;
         }).join('');
         
-        // Attach click listeners to toggle lights
-        container.querySelectorAll('.window-light').forEach(windowEl => {
-            windowEl.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const entityId = windowEl.getAttribute('data-entity');
-                if (entityId) {
-                    // Toggle the light
-                    this._hass.callService('light', 'toggle', { entity_id: entityId });
+        // Set up event delegation (only once)
+        if (!this._windowLightsDelegated) {
+            container.addEventListener('click', (e) => {
+                const windowEl = e.target.closest('.window-light');
+                if (windowEl) {
+                    e.stopPropagation();
+                    const entityId = windowEl.getAttribute('data-entity');
+                    if (entityId) {
+                        // Toggle the light
+                        this._hass.callService('light', 'toggle', { entity_id: entityId });
+                    }
                 }
             });
-        });
+            this._windowLightsDelegated = true;
+        }
     }
 
     _updateNavLinks() {
@@ -527,18 +535,22 @@ class HouseCard extends HTMLElement {
               </div>`;
         }).join('');
         
-        // Attach click listeners for navigation
-        container.querySelectorAll('.nav-link').forEach(navEl => {
-            navEl.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const path = navEl.getAttribute('data-path');
-                if (path) {
-                    // Navigate to the specified path
-                    history.pushState(null, '', path);
-                    window.dispatchEvent(new Event('location-changed'));
+        // Set up event delegation (only once)
+        if (!this._navLinksDelegated) {
+            container.addEventListener('click', (e) => {
+                const navEl = e.target.closest('.nav-link');
+                if (navEl) {
+                    e.stopPropagation();
+                    const path = navEl.getAttribute('data-path');
+                    if (path) {
+                        // Navigate to the specified path
+                        history.pushState(null, '', path);
+                        window.dispatchEvent(new Event('location-changed'));
+                    }
                 }
             });
-        });
+            this._navLinksDelegated = true;
+        }
     }
     
     _hexToRgb(hex) {
@@ -1019,6 +1031,9 @@ class HouseCard extends HTMLElement {
         return;
       }
       
+      // Cache timestamp for performance
+      const now = Date.now();
+      
       const wEnt = this._config.weather_entity;
       let wState = this._config.test_weather_state || (wEnt ? this._hass.states[wEnt]?.state : "");
       const { speed, bearing } = this._getWindData();
@@ -1033,7 +1048,7 @@ class HouseCard extends HTMLElement {
 
       this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
 
-      if (isNight) this._drawStars(coverage);
+      if (isNight) this._drawStars(coverage, now);
       if (isNight) this._drawMoon(coverage);
       if (isNight && this._config.shooting_stars !== false) this._handleShootingStars(coverage);
       if (this._config.seasonal_particles !== false) this._drawSeasonalParticles(windDirX, moveSpeed);
@@ -1059,12 +1074,12 @@ class HouseCard extends HTMLElement {
       this._animationFrame = requestAnimationFrame(() => this._animate());
     }
 
-    _drawStars(coverage) {
+    _drawStars(coverage, timestamp) {
         const visibility = Math.max(0, 1 - (coverage / 80)); 
         if (visibility <= 0) return;
         this._ctx.fillStyle = "#FFF";
         this._stars.forEach(star => {
-            this._ctx.globalAlpha = Math.abs(Math.sin(Date.now() * 0.001 * star.speed + star.x)) * star.opacity * visibility;
+            this._ctx.globalAlpha = Math.abs(Math.sin(timestamp * 0.001 * star.speed + star.x)) * star.opacity * visibility;
             this._ctx.beginPath();
             this._ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
             this._ctx.fill();
@@ -1126,25 +1141,39 @@ class HouseCard extends HTMLElement {
       if (this._particles.length < 150 * intensity) this._particles.push({ x: Math.random() * this._canvas.width, y: -20, speed: 15 + windSpeed, length: 15 + Math.random() * 10 });
       this._ctx.strokeStyle = 'rgba(174, 194, 224, 0.6)'; this._ctx.lineWidth = 1; this._ctx.beginPath();
       const angleX = windDirX * (windSpeed * 1.5);
+      const canvasHeight = this._canvas.height;
+      const canvasWidth = this._canvas.width;
+      
       for (let i = 0; i < this._particles.length; i++) {
           const p = this._particles[i];
           this._ctx.moveTo(p.x, p.y); this._ctx.lineTo(p.x + angleX, p.y + p.length);
           p.y += p.speed; p.x += angleX;
-          if (p.y > this._canvas.height || p.x > this._canvas.width + 50 || p.x < -50) { this._particles.splice(i, 1); i--; }
       }
       this._ctx.stroke();
+      
+      // Filter out off-screen particles
+      this._particles = this._particles.filter(p => 
+          p.y <= canvasHeight && p.x <= canvasWidth + 50 && p.x >= -50
+      );
     }
 
     _drawSnow(windDirX, windSpeed) {
       if (this._particles.length < 100) this._particles.push({ x: Math.random() * this._canvas.width, y: -10, speed: 1 + Math.random(), radius: 1.5 + Math.random() });
       this._ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; this._ctx.beginPath();
+      const canvasHeight = this._canvas.height;
+      const canvasWidth = this._canvas.width;
+      
       for (let i = 0; i < this._particles.length; i++) {
           const p = this._particles[i];
           this._ctx.moveTo(p.x, p.y); this._ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
           p.y += p.speed; p.x += (Math.sin(p.y * 0.03) * 0.5) + (windDirX * windSpeed * 0.5);
-          if (p.y > this._canvas.height || p.x > this._canvas.width + 50 || p.x < -50) { this._particles.splice(i, 1); i--; }
       }
       this._ctx.fill();
+      
+      // Filter out off-screen particles
+      this._particles = this._particles.filter(p => 
+          p.y <= canvasHeight && p.x <= canvasWidth + 50 && p.x >= -50
+      );
     }
     
     // --- SHOOTING STARS ---
