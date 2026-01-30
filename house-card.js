@@ -8,7 +8,7 @@
  * * FEAT: Shooting stars at night.
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
  * 
- * @version 1.16.0
+ * @version 1.17.0
  */
 
 const TRANSLATIONS = {
