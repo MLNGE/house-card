@@ -2,5 +2,6 @@
   "name": "Custom house card - farmie",
   "content_in_root": true,
   "filename": "house-card.js",
-  "render_readme": true
+  "render_readme": true,
+  "logo": "logo.png"
 }
