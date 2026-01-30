@@ -8,7 +8,7 @@
  * * FEAT: Shooting stars at night.
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
  * 
- * @version 1.12.0
+ * @version 1.13.0
  */
 
 const TRANSLATIONS = {
@@ -454,6 +454,8 @@ class HouseCard extends HTMLElement {
             const width = win.width ?? 10;
             const height = win.height ?? 12;
             const color = win.color || '#FFA64D';
+            const skewX = win.skew_x ?? 0;  // Skew for isometric perspective (deg)
+            const skewY = win.skew_y ?? 0;  // Skew for isometric perspective (deg)
             const brightness = entity?.attributes?.brightness;
             
             // Calculate opacity based on brightness (0-255) if available
@@ -474,11 +476,14 @@ class HouseCard extends HTMLElement {
             // Debug border to help with positioning
             const debugStyle = debugMode ? 'border: 2px dashed red !important; background: rgba(255,0,0,0.3) !important;' : '';
             
+            // Apply skew transform for isometric perspective
+            const transformStyle = `transform: translate(-50%, -50%) skewX(${skewX}deg) skewY(${skewY}deg);`;
+            
             return `
               <div class="window-light ${isOn ? 'is-on' : 'is-off'}" 
                    data-entity="${win.entity}"
                    data-index="${index}"
-                   style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%; ${colorStyle} ${debugStyle}">
+                   style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%; ${transformStyle} ${colorStyle} ${debugStyle}">
               </div>`;
         }).join('');
         
@@ -854,7 +859,6 @@ class HouseCard extends HTMLElement {
           }
           .window-light {
               position: absolute;
-              transform: translate(-50%, -50%);
               border-radius: 2px;
               transition: all 0.8s ease;
               pointer-events: auto;

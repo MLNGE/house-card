@@ -17,6 +17,20 @@ A custom Lovelace card for Home Assistant that displays an animated isometric ho
 - 🖼️ **Seasonal Images** - Automatic day/night and seasonal background changes
 - 🎄 **Christmas Mode** - Special images from Dec 14 - Jan 14
 
+## Required Integrations
+
+This card requires the following Home Assistant integrations:
+
+### Core (Required)
+- 🌤️ [Weather](https://www.home-assistant.io/integrations/weather/) - For weather animations and conditions
+- ☀️ [Sun](https://www.home-assistant.io/integrations/sun/) - For day/night detection (built-in)
+- 📅 [Season](https://www.home-assistant.io/integrations/season/) - For seasonal backgrounds and particles (built-in)
+
+### Optional (Enhanced Features)
+- 🌙 [Moon](https://www.home-assistant.io/integrations/moon/) - For moon phase rendering with animated glow
+- ☁️ [OpenWeatherMap](https://www.home-assistant.io/integrations/openweathermap/) - For cloud coverage data
+- 💨 Wind Speed/Direction sensors - For realistic animation effects
+
 ## Support
 
 If you enjoy this card and want to support its development, you can buy me a coffee!
@@ -131,12 +145,15 @@ rooms:
 # When the light is ON, the window glows. When OFF, the window appears dark.
 # Clicking a window will toggle the light entity.
 # color: Glow color when light is on (hex format, default: "#FFA64D" warm orange)
+# skew_x/skew_y: Skew angles in degrees to match isometric perspective (e.g., skew_x: -30 for left-facing windows)
 window_lights:
   - entity: light.living_room_lamp
     x: 25          # Position of window center (percentage)
     y: 60
     width: 8       # Size of the glow area
     height: 10
+    skew_x: -30    # Skew angle for isometric perspective (degrees)
+    skew_y: 0      # Vertical skew (degrees)
     color: "#FFA64D"  # Warm orange glow (optional)
 
   - entity: light.bedroom
@@ -144,6 +161,7 @@ window_lights:
     y: 45
     width: 6
     height: 8
+    skew_x: 30     # Positive skew for right-facing windows
     color: "#FFFACD"  # Soft warm white
 
 # --- Navigation Links Configuration ---
