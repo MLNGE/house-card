@@ -8,7 +8,7 @@
  * * FEAT: Shooting stars at night.
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
  * 
- * @version 1.14.0
+ * @version 1.15.0
  */
 
 const TRANSLATIONS = {
@@ -866,24 +866,25 @@ class HouseCard extends HTMLElement {
           }
           .window-light.is-on {
               background: radial-gradient(ellipse at center, 
-                  var(--window-color, rgba(255, 220, 150, 0.85)) 0%, 
-                  var(--window-color, rgba(255, 200, 120, 0.5)) 30%,
-                  var(--window-color-mid, rgba(255, 180, 100, 0.2)) 60%,
+                  var(--window-color, rgba(255, 220, 150, 1.0)) 0%, 
+                  var(--window-color, rgba(255, 200, 120, 0.7)) 30%,
+                  var(--window-color-mid, rgba(255, 180, 100, 0.4)) 60%,
                   transparent 100%);
               mix-blend-mode: screen;
-              filter: blur(3px);
+              filter: blur(5px);
           }
           .window-light.is-on::after {
               content: '';
               position: absolute;
               top: 50%; left: 50%;
               transform: translate(-50%, -50%);
-              width: 200%; height: 200%;
+              width: 300%; height: 300%;
               background: radial-gradient(ellipse at center,
-                  var(--window-glow-outer, rgba(255, 180, 100, 0.25)) 0%,
-                  transparent 70%);
+                  var(--window-glow-outer, rgba(255, 180, 100, 0.5)) 0%,
+                  var(--window-glow-outer, rgba(255, 180, 100, 0.3)) 40%,
+                  transparent 80%);
               mix-blend-mode: screen;
-              filter: blur(10px);
+              filter: blur(20px);
               pointer-events: none;
           }
           .window-light.is-off {
