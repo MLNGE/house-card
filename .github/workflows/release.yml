@@ -27,6 +27,23 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Found version: $VERSION"
 
+      - name: Extract changelog for version
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if [ -f "CHANGELOG.md" ]; then
+            # Extract the section for this version
+            CHANGELOG=$(awk "/## \[$VERSION\]/,/## \[/" CHANGELOG.md | sed '1d;$d' | sed '/^$/d')
+            if [ -z "$CHANGELOG" ]; then
+              CHANGELOG="Release $VERSION"
+            fi
+          else
+            CHANGELOG="Release $VERSION"
+          fi
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Check if tag exists
         id: check_tag
         run: |
@@ -42,6 +59,6 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: Release ${{ steps.version.outputs.version }}
-          generate_release_notes: true
+          body: ${{ steps.changelog.outputs.changelog }}
           files: |
             house-card.js
