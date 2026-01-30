@@ -8,7 +8,7 @@
  * * FEAT: Shooting stars at night.
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
  * 
- * @version 1.13.0
+ * @version 1.14.0
  */
 
 const TRANSLATIONS = {
@@ -473,8 +473,8 @@ class HouseCard extends HTMLElement {
                   `--window-glow-outer: rgba(${colorRGB.r}, ${colorRGB.g}, ${colorRGB.b}, ${opacity * 0.4});`
                 : '';
             
-            // Debug border to help with positioning
-            const debugStyle = debugMode ? 'border: 2px dashed red !important; background: rgba(255,0,0,0.3) !important;' : '';
+            // Debug border to help with positioning - highly visible
+            const debugStyle = debugMode ? 'border: 3px solid red !important; background: rgba(255,0,0,0.6) !important; mix-blend-mode: normal !important; filter: none !important; box-shadow: 0 0 10px red, inset 0 0 10px rgba(255,0,0,0.5) !important; z-index: 9999 !important;' : '';
             
             // Apply skew transform for isometric perspective
             const transformStyle = `transform: translate(-50%, -50%) skewX(${skewX}deg) skewY(${skewY}deg);`;
