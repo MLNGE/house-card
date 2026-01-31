@@ -10,7 +10,7 @@
  * * FEAT: Sun rendering during daytime with animated glow and rays.
  * * FIX: Moon phase now renders actual illumination percentage.
  * 
- * @version 1.20.2
+ * @version 1.21.0
  */
 
 const TRANSLATIONS = {
@@ -455,6 +455,13 @@ class HouseCard extends HTMLElement {
         const isNight = this._hass.states[sunEnt]?.state === 'below_horizon';
         const dimLayer = this.shadowRoot.querySelector('.dim-layer');
         if (dimLayer) dimLayer.style.opacity = isNight ? '0.1' : '0';
+        
+        // Apply night mode to decorations
+        const decorationsLayer = this.shadowRoot.querySelector('.decorations-layer');
+        if (decorationsLayer) {
+            decorationsLayer.classList.toggle('night-mode', isNight);
+        }
+        
         return isNight;
     }
 
@@ -1127,6 +1134,10 @@ class HouseCard extends HTMLElement {
               width: 100%;
               height: 100%;
               object-fit: contain;
+              transition: filter 1s ease;
+          }
+          .decorations-layer.night-mode .decoration img {
+              filter: brightness(0.5) saturate(0.7);
           }
           .decoration.animate-bounce {
               animation: decorationBounce 2s ease-in-out infinite;
