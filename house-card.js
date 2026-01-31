@@ -10,7 +10,7 @@
  * * FEAT: Sun rendering during daytime with animated glow and rays.
  * * FIX: Moon phase now renders actual illumination percentage.
  * 
- * @version 1.20.1
+ * @version 1.20.2
  */
 
 const TRANSLATIONS = {
@@ -108,6 +108,7 @@ class HouseCard extends HTMLElement {
       if (!config.rooms || !Array.isArray(config.rooms)) throw new Error("Missing 'rooms' list.");
       this._config = config;
       this._lang = config.language || 'en';
+      this._decorationsRendered = false; // Reset so decorations re-render on config change
       this._render();
     }
   
@@ -290,7 +291,7 @@ class HouseCard extends HTMLElement {
       this._updateBadges(roomsData);
       this._updateWindowLights();
       this._updateNavLinks();
-      this._updateDecorations();
+      if (!this._decorationsRendered) this._updateDecorations();
       this._handleGamingMode();
       this._handleDayNight();
       
@@ -588,6 +589,9 @@ class HouseCard extends HTMLElement {
         const decorations = this._config.decorations;
         const debugMode = this._config.decorations_debug || false;
         
+        // Only render if not already done (decorations are static)
+        if (this._decorationsRendered && container.children.length > 0) return;
+        
         container.innerHTML = decorations.map((dec, index) => {
             const x = dec.x ?? 50;
             const y = dec.y ?? 50;
@@ -618,6 +622,8 @@ class HouseCard extends HTMLElement {
                    <img src="${image}" alt="decoration" loading="lazy">
               </div>`;
         }).join('');
+        
+        this._decorationsRendered = true;
     }
     
     _hexToRgb(hex) {
