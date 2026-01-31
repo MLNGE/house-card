@@ -10,7 +10,7 @@
  * * FEAT: Sun rendering during daytime with animated glow and rays.
  * * FIX: Moon phase now renders actual illumination percentage.
  * 
- * @version 1.19.0
+ * @version 1.20.0
  */
 
 const TRANSLATIONS = {
@@ -91,7 +91,8 @@ class HouseCard extends HTMLElement {
         ],
         nav_links: [
             { path: "/lovelace/garage", x: 80, y: 70, width: 15, height: 20, icon: "mdi:garage" }
-        ]
+        ],
+        decorations: []
       };
     }
 
@@ -289,6 +290,7 @@ class HouseCard extends HTMLElement {
       this._updateBadges(roomsData);
       this._updateWindowLights();
       this._updateNavLinks();
+      this._updateDecorations();
       this._handleGamingMode();
       this._handleDayNight();
       
@@ -577,6 +579,45 @@ class HouseCard extends HTMLElement {
             });
             this._navLinksDelegated = true;
         }
+    }
+
+    _updateDecorations() {
+        const container = this.shadowRoot.querySelector('.decorations-layer');
+        if (!container || !this._config.decorations) return;
+        
+        const decorations = this._config.decorations;
+        const debugMode = this._config.decorations_debug || false;
+        
+        container.innerHTML = decorations.map((dec, index) => {
+            const x = dec.x ?? 50;
+            const y = dec.y ?? 50;
+            const width = dec.width ?? 10;
+            const height = dec.height ?? 'auto';
+            const image = dec.image || '';
+            const animate = dec.animate || false;
+            const flipX = dec.flip_x || false;
+            const opacity = dec.opacity ?? 1.0;
+            
+            // Animation class
+            let animClass = '';
+            if (animate === true || animate === 'bounce') animClass = 'animate-bounce';
+            else if (animate === 'sway') animClass = 'animate-sway';
+            else if (animate === 'wag') animClass = 'animate-wag';
+            
+            // Debug border to help with positioning
+            const debugStyle = debugMode ? 'border: 2px dashed magenta !important; background: rgba(255,0,255,0.2) !important;' : '';
+            
+            // Size styling
+            const heightStyle = height === 'auto' ? 'height: auto;' : `height: ${height}%;`;
+            const flipStyle = flipX ? 'transform: translate(-50%, -50%) scaleX(-1);' : '';
+            
+            return `
+              <div class="decoration ${animClass}" 
+                   data-index="${index}"
+                   style="top: ${y}%; left: ${x}%; width: ${width}%; ${heightStyle} opacity: ${opacity}; ${flipStyle} ${debugStyle}">
+                   <img src="${image}" alt="decoration" loading="lazy">
+              </div>`;
+        }).join('');
     }
     
     _hexToRgb(hex) {
@@ -1065,6 +1106,44 @@ class HouseCard extends HTMLElement {
               letter-spacing: 0.5px;
           }
           
+          /* DECORATIONS */
+          .decorations-layer {
+              position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+              z-index: 4; pointer-events: none;
+          }
+          .decoration {
+              position: absolute;
+              transform: translate(-50%, -50%);
+              pointer-events: none;
+              image-rendering: auto;
+          }
+          .decoration img {
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
+          }
+          .decoration.animate-bounce {
+              animation: decorationBounce 2s ease-in-out infinite;
+          }
+          .decoration.animate-sway {
+              animation: decorationSway 3s ease-in-out infinite;
+          }
+          .decoration.animate-wag {
+              animation: decorationWag 0.5s ease-in-out infinite;
+          }
+          @keyframes decorationBounce {
+              0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+              50% { transform: translate(-50%, -50%) translateY(-3px); }
+          }
+          @keyframes decorationSway {
+              0%, 100% { transform: translate(-50%, -50%) rotate(-2deg); }
+              50% { transform: translate(-50%, -50%) rotate(2deg); }
+          }
+          @keyframes decorationWag {
+              0%, 100% { transform: translate(-50%, -50%) rotate(-5deg); }
+              50% { transform: translate(-50%, -50%) rotate(5deg); }
+          }
+          
           /* GAMING AMBIENT */
           .ambient-layer {
               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -1136,6 +1215,7 @@ class HouseCard extends HTMLElement {
               <div class="ambient-light blob-3"></div>
           </div>
           <canvas id="weatherCanvas"></canvas>
+          <div class="decorations-layer"></div>
           <div class="nav-links-layer"></div>
           <div class="badges-layer"></div>
         </div>
@@ -1258,13 +1338,20 @@ class HouseCard extends HTMLElement {
     _drawClouds(dirX, baseSpeed, density) {
         const target = Math.floor(5 * density);
         if (this._clouds.length < target) {
-             const newCloud = this._createCloud(false); newCloud.x = dirX > 0 ? -200 : this._canvas.width + 200;
+             const newCloud = this._createCloud(false); 
+             newCloud.x = dirX > 0 ? -200 : this._canvas.width + 200;
+             newCloud.dirX = dirX; // Store the direction the cloud was created with
              this._clouds.push(newCloud);
         }
         if (this._clouds.length > target) this._clouds.pop();
         this._clouds.forEach((cloud, index) => {
+            // Use current wind direction, not the direction when cloud was created
             cloud.x += baseSpeed * 0.3 * dirX; 
-            if ((dirX > 0 && cloud.x > this._canvas.width + 200) || (dirX < 0 && cloud.x < -200)) { this._clouds.splice(index, 1); return; }
+            // Remove clouds that have exited the screen (check both directions)
+            if (cloud.x > this._canvas.width + 200 || cloud.x < -200) { 
+                this._clouds.splice(index, 1); 
+                return; 
+            }
             this._ctx.save(); this._ctx.translate(cloud.x, cloud.y); this._ctx.scale(cloud.scale, cloud.scale);
             cloud.puffs.forEach(puff => {
                 const gradient = this._ctx.createRadialGradient(puff.xOffset, puff.yOffset, 0, puff.xOffset, puff.yOffset, puff.radius);

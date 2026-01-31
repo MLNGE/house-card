@@ -222,10 +222,24 @@ nav_links:
     width: 10
     height: 12
 
+# --- Decorations (Images/Pets) ---
+# Add image overlays for pets, garden gnomes, vehicles, or any decorative elements.
+# Images should be PNG with transparency for best results.
+decorations:
+  - image: "/local/images/dog.png"   # Path to your image
+    x: 75                             # Position (percentage)
+    y: 85
+    width: 8                          # Width (percentage)
+    # height: auto                    # Height (auto = maintain aspect ratio)
+    # animate: true                   # Animation: true/bounce, sway, or wag
+    # flip_x: false                   # Mirror the image horizontally
+    # opacity: 1.0                    # Transparency (0.0 - 1.0)
+
 # --- Debug Modes ---
 # Enable these to see colored outlines for positioning overlays:
 # window_lights_debug: true   # Red dashed outlines for window lights
 # nav_links_debug: true       # Green dashed outlines for navigation links
+# decorations_debug: true     # Magenta dashed outlines for decorations
 ```
 
 ## Position Reference
