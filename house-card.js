@@ -10,7 +10,7 @@
  * * FEAT: Sun rendering during daytime with animated glow and rays.
  * * FIX: Moon phase now renders actual illumination percentage.
  * 
- * @version 1.21.0
+ * @version 1.21.1
  */
 
 const TRANSLATIONS = {
@@ -1137,7 +1137,7 @@ class HouseCard extends HTMLElement {
               transition: filter 1s ease;
           }
           .decorations-layer.night-mode .decoration img {
-              filter: brightness(0.5) saturate(0.7);
+              filter: brightness(0.7) saturate(0.85);
           }
           .decoration.animate-bounce {
               animation: decorationBounce 2s ease-in-out infinite;
