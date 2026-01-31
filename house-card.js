@@ -10,7 +10,7 @@
  * * FEAT: Sun rendering during daytime with animated glow and rays.
  * * FIX: Moon phase now renders actual illumination percentage.
  * 
- * @version 1.18.0
+ * @version 1.19.0
  */
 
 const TRANSLATIONS = {
@@ -76,12 +76,16 @@ class HouseCard extends HTMLElement {
         shooting_star_frequency: 0.002,
         seasonal_particles: true,
         seasonal_particle_density: 1.0,
+        badge_opacity: 0.75,
         cloud_coverage_entity: "sensor.openweathermap_cloud_coverage",
         party_mode_entity: "input_boolean.gaming_mode",
         rooms: [
             { name: "Living Room", entity: "sensor.salon_temp", humidity_entity: "sensor.salon_humidity", co2_entity: "sensor.salon_co2", x: 50, y: 50 },
             { name: "Power", entity: "sensor.power", x: 20, y: 80, unit: "W", decimals: 0 }
         ],
+        window_glow_intensity: 1.0,
+        window_glow_size: 1.0,
+        window_glow_color: "#FFA64D",
         window_lights: [
             { entity: "light.living_room", x: 25, y: 60, width: 8, height: 10, color: "#FFA500" }
         ],
@@ -261,6 +265,8 @@ class HouseCard extends HTMLElement {
           if (card) {
              const scale = this._config.scale || 1.0;
              card.style.setProperty('--badge-scale', scale);
+             const badgeOpacity = this._config.badge_opacity ?? 0.75;
+             card.style.setProperty('--badge-opacity', badgeOpacity);
           }
       }
 
@@ -455,6 +461,9 @@ class HouseCard extends HTMLElement {
         
         const windowLights = this._config.window_lights;
         const debugMode = this._config.window_lights_debug || false;
+        const glowIntensity = this._config.window_glow_intensity ?? 1.0;
+        const glowSize = this._config.window_glow_size ?? 1.0;
+        const defaultGlowColor = this._config.window_glow_color || '#FFA64D';
         
         // Build HTML for window lights
         container.innerHTML = windowLights.map((win, index) => {
@@ -464,7 +473,7 @@ class HouseCard extends HTMLElement {
             const y = win.y ?? 50;
             const width = win.width ?? 10;
             const height = win.height ?? 12;
-            const color = win.color || '#FFA64D';
+            const color = win.color || defaultGlowColor;
             const skewX = win.skew_x ?? 0;  // Skew for isometric perspective (deg)
             const skewY = win.skew_y ?? 0;  // Skew for isometric perspective (deg)
             const brightness = entity?.attributes?.brightness;
@@ -478,10 +487,11 @@ class HouseCard extends HTMLElement {
             // Parse color and create variations for gradient
             const colorRGB = this._hexToRgb(color);
             const colorStyle = colorRGB 
-                ? `--window-color: rgba(${colorRGB.r}, ${colorRGB.g}, ${colorRGB.b}, ${opacity * 0.9}); ` +
-                  `--window-color-mid: rgba(${colorRGB.r}, ${colorRGB.g}, ${colorRGB.b}, ${opacity * 0.6}); ` +
-                  `--window-glow: rgba(${colorRGB.r}, ${colorRGB.g}, ${colorRGB.b}, ${opacity * 0.8}); ` +
-                  `--window-glow-outer: rgba(${colorRGB.r}, ${colorRGB.g}, ${colorRGB.b}, ${opacity * 0.4});`
+                ? `--window-color: rgba(${colorRGB.r}, ${colorRGB.g}, ${colorRGB.b}, ${opacity * 0.9 * glowIntensity}); ` +
+                  `--window-color-mid: rgba(${colorRGB.r}, ${colorRGB.g}, ${colorRGB.b}, ${opacity * 0.6 * glowIntensity}); ` +
+                  `--window-glow: rgba(${colorRGB.r}, ${colorRGB.g}, ${colorRGB.b}, ${opacity * 0.8 * glowIntensity}); ` +
+                  `--window-glow-outer: rgba(${colorRGB.r}, ${colorRGB.g}, ${colorRGB.b}, ${opacity * 0.4 * glowIntensity}); ` +
+                  `--window-blur: ${5 * glowSize}px; --window-glow-blur: ${20 * glowSize}px; --window-glow-scale: ${glowSize};`
                 : '';
             
             // Debug border to help with positioning - highly visible
@@ -998,20 +1008,20 @@ class HouseCard extends HTMLElement {
                   var(--window-color-mid, rgba(255, 180, 100, 0.4)) 60%,
                   transparent 100%);
               mix-blend-mode: screen;
-              filter: blur(5px);
+              filter: blur(var(--window-blur, 5px));
           }
           .window-light.is-on::after {
               content: '';
               position: absolute;
               top: 50%; left: 50%;
-              transform: translate(-50%, -50%);
+              transform: translate(-50%, -50%) scale(var(--window-glow-scale, 1));
               width: 300%; height: 300%;
               background: radial-gradient(ellipse at center,
                   var(--window-glow-outer, rgba(255, 180, 100, 0.5)) 0%,
                   var(--window-glow-outer, rgba(255, 180, 100, 0.3)) 40%,
                   transparent 80%);
               mix-blend-mode: screen;
-              filter: blur(20px);
+              filter: blur(var(--window-glow-blur, 20px));
               pointer-events: none;
           }
           .window-light.is-off {
@@ -1082,10 +1092,10 @@ class HouseCard extends HTMLElement {
               transform: translate(-50%, -50%) scale(var(--badge-scale, 1));
               padding: 6px 12px;
               border-radius: 16px;
-              background: rgba(20, 20, 25, 0.75); 
+              background: rgba(20, 20, 25, var(--badge-opacity, 0.75)); 
               backdrop-filter: blur(8px);
-              border: 1px solid rgba(255,255,255,0.15);
-              box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+              border: 1px solid rgba(255,255,255, calc(var(--badge-opacity, 0.75) * 0.2));
+              box-shadow: 0 4px 8px rgba(0,0,0, calc(var(--badge-opacity, 0.75) * 0.53));
               display: flex; align-items: center; gap: 8px; pointer-events: auto;
               transition: transform 0.3s ease; 
               cursor: pointer; /* Change cursor on hover */

@@ -1,13 +1,28 @@
-# 🏠 House Card Farmie
+# � House Card - Multi-Purpose Visualization
 
 ![alt text](image.png)
 
-A custom Lovelace card for Home Assistant that displays an animated isometric house with dynamic weather effects, sensor badges, interactive window lights, and navigation hotspots.
+A **multi-purpose visualization card** for Home Assistant that transforms your dashboard into an immersive, dynamic display. Overlay sensor data, weather animations, and interactive controls on any custom background image — perfect for house floorplans, isometric buildings, garden layouts, or any visual representation of your smart home.
+
+## ✨ What Makes This Card Special
+
+This isn't just a sensor display — it's a **living visualization** that responds to real-world conditions:
+
+| Feature | Description |
+|---------|-------------|
+| 🖼️ **Any Background** | Use your own images: house renders, floorplans, photos, pixel art |
+| ⛈️ **Weather Animations** | Rain, snow, fog, lightning, clouds — all animated on canvas |
+| ☀️ **Sun & Moon** | Realistic celestial bodies with accurate phases and animated glow |
+| 🌠 **Atmospheric Effects** | Shooting stars, seasonal particles (autumn leaves, cherry blossoms) |
+| 📊 **Sensor Badges** | Temperature, humidity, CO2, power — positioned anywhere |
+| 💡 **Interactive Lights** | Click windows to toggle lights with realistic glow effects |
+| 🔗 **Navigation Hotspots** | Clickable areas to navigate between HA views |
 
 ## Features
 
 - ⛈️ **Weather Animations** - Rain, snow, fog, lightning, clouds, and stars
-- 🌙 **Moon Phases** - Realistic moon rendering with all 8 phases and animated glow
+- ☀️ **Daytime Sun** - Animated sun with warm glow and rotating rays
+- 🌙 **Moon Phases** - Realistic moon rendering with accurate illumination and animated glow
 - 🌠 **Shooting Stars** - Occasional shooting stars streak across the night sky
 - 🍂 **Seasonal Particles** - Autumn leaves and spring cherry blossom petals
 - 📊 **Sensor Badges** - Display temperature, humidity, CO2, power consumption
@@ -19,15 +34,15 @@ A custom Lovelace card for Home Assistant that displays an animated isometric ho
 
 ## Required Integrations
 
-This card requires the following Home Assistant integrations:
+This card works with standard Home Assistant integrations:
 
 ### Core (Required)
 - 🌤️ [Weather](https://www.home-assistant.io/integrations/weather/) - For weather animations and conditions
-- ☀️ [Sun](https://www.home-assistant.io/integrations/sun/) - For day/night detection (built-in)
+- ☀️ [Sun](https://www.home-assistant.io/integrations/sun/) - For day/night detection and sun rendering (built-in)
 - 📅 [Season](https://www.home-assistant.io/integrations/season/) - For seasonal backgrounds and particles (built-in)
 
 ### Optional (Enhanced Features)
-- 🌙 [Moon](https://www.home-assistant.io/integrations/moon/) - For moon phase rendering with animated glow
+- 🌙 [Moon](https://www.home-assistant.io/integrations/moon/) - For accurate moon phase names (illumination calculated automatically)
 - ☁️ [OpenWeatherMap](https://www.home-assistant.io/integrations/openweathermap/) - For cloud coverage data
 - 💨 Wind Speed/Direction sensors - For realistic animation effects
 
@@ -40,13 +55,26 @@ If you enjoy this card and want to support its development, you can buy me a cof
 ## Installation
 
 ### HACS (Recommended)
-1. Add this repository to HACS as a custom repository
-2. Install "House Card"
-3. Add the resource to your Lovelace configuration
+1. Open HACS in Home Assistant
+2. Click the three dots menu (⋮) → **Custom repositories**
+3. Add the repository URL:
+   ```
+   https://github.com/MLNGE/house-card
+   ```
+4. Select category: **Lovelace**
+5. Click **Add** → Find "House Card" → Click **Download**
+6. Restart Home Assistant
+7. Add the resource to your Lovelace configuration (HACS usually does this automatically)
 
 ### Manual
-1. Copy `house-card.js` to `/config/www/community/house-card/`
-2. Add the resource in your Lovelace configuration
+1. Download `house-card.js` from the [latest release](https://github.com/MLNGE/house-card/releases)
+2. Copy to `/config/www/community/house-card/`
+3. Add the resource in your Lovelace configuration:
+   ```yaml
+   resources:
+     - url: /local/community/house-card/house-card.js
+       type: module
+   ```
 
 ## Configuration
 
@@ -57,6 +85,7 @@ language: "en"
 
 # --- Global Visual Adjustments ---
 scale: 1.0            # Scale factor for badges (0.8 = smaller, 1.2 = larger)
+badge_opacity: 0.75   # Badge transparency (0.0 = fully transparent, 1.0 = fully opaque)
 background_zoom: 1.0  # Zoom factor for background image (0.8 = zoom out, 1.2 = zoom in)
 image_x_offset: 0     # Horizontal shift for background image in pixels (Negative = LEFT, Positive = RIGHT)
 image_y_offset: 0     # Vertical shift for background image in pixels (Negative = UP, Positive = DOWN)
@@ -96,6 +125,13 @@ moon_position_x: 85              # Horizontal position % (default: 85)
 moon_position_y: 15              # Vertical position % (default: 15)
 moon_size: 1.0                   # Scale factor (0.5 = smaller, 1.5 = larger)
 moon_glow: true                  # Enable animated glow effect (default: true)
+
+# --- Sun Configuration ---
+sun_position_x: 15               # Horizontal position % (default: 15)
+sun_position_y: 20               # Vertical position % (default: 20)
+sun_size: 1.0                    # Scale factor (0.5 = smaller, 1.5 = larger)
+sun_glow: true                   # Enable animated glow effect (default: true)
+sun_rays: true                   # Enable rotating sun rays (default: true)
 
 # --- Shooting Stars ---
 shooting_stars: true             # Enable shooting stars at night (default: true)
@@ -144,6 +180,10 @@ rooms:
 # Link light entities to specific window regions on the house image.
 # When the light is ON, the window glows. When OFF, the window appears dark.
 # Clicking a window will toggle the light entity.
+window_glow_intensity: 1.0   # Glow brightness (0.5 = dimmer, 1.5 = brighter)
+window_glow_size: 1.0        # Glow spread size (0.5 = tighter, 2.0 = larger spread)
+window_glow_color: "#FFA64D" # Default glow color for all windows (warm orange)
+# Per-window options:
 # color: Glow color when light is on (hex format, default: "#FFA64D" warm orange)
 # skew_x/skew_y: Skew angles in degrees to match isometric perspective (e.g., skew_x: -30 for left-facing windows)
 window_lights:
@@ -214,3 +254,9 @@ Examples:
 ## License
 
 MIT
+
+---
+
+<p align="center">
+  <i>Transform your Home Assistant dashboard into a living visualization of your smart home.</i>
+</p>
