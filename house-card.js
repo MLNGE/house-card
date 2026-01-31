@@ -9,7 +9,7 @@
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
  * * FIX: Moon phase now renders actual illumination percentage.
  * 
- * @version 1.17.1
+ * @version 1.17.2
  */
 
 const TRANSLATIONS = {
@@ -769,42 +769,52 @@ class HouseCard extends HTMLElement {
         this._ctx.arc(x, y, size, 0, Math.PI * 2);
         this._ctx.clip();
         
-        // Draw shadow using an ellipse that creates the phase effect
-        // The ellipse width varies based on illumination
-        const ellipseWidth = size * Math.abs(1 - illumination * 2);
-        const shadowX = shadowSide === 'left' 
-            ? x - size * (1 - illumination) 
-            : x + size * (1 - illumination);
+        // The terminator (shadow edge) is drawn as an ellipse
+        // At 50% illumination, terminator is a vertical line through center (ellipse width = 0)
+        // At 0% or 100%, terminator ellipse width = full moon width
+        // The key insight: the terminator position stays at center, but its "bulge" changes
+        
+        // Calculate how much the terminator bulges: 0 at quarter, ±size at new/full
+        const terminatorBulge = size * Math.cos(illumination * Math.PI);
         
         this._ctx.beginPath();
         
         if (illumination < 0.5) {
-            // Less than half lit - shadow covers most of moon
-            // Draw shadow as large area with lit crescent
+            // Less than half lit - draw dark background, then carve out lit crescent
             this._ctx.fillStyle = 'rgba(15, 20, 30, 0.95)';
             this._ctx.fillRect(x - size - 1, y - size - 1, size * 2 + 2, size * 2 + 2);
             
-            // Cut out the lit crescent
+            // The lit crescent: draw arc on lit side + terminator ellipse
             this._ctx.globalCompositeOperation = 'destination-out';
             this._ctx.beginPath();
-            this._ctx.ellipse(
-                shadowSide === 'left' ? x + size * (0.5 - illumination) : x - size * (0.5 - illumination),
-                y,
-                ellipseWidth,
-                size,
-                0, 0, Math.PI * 2
-            );
+            
+            // Start from top, draw the lit edge (right side for waxing, left for waning)
+            if (shadowSide === 'left') {
+                // Waxing: lit part is on the right
+                this._ctx.arc(x, y, size, -Math.PI/2, Math.PI/2, false); // right semicircle
+                this._ctx.ellipse(x, y, Math.abs(terminatorBulge), size, 0, Math.PI/2, -Math.PI/2, terminatorBulge > 0);
+            } else {
+                // Waning: lit part is on the left
+                this._ctx.arc(x, y, size, Math.PI/2, -Math.PI/2, false); // left semicircle
+                this._ctx.ellipse(x, y, Math.abs(terminatorBulge), size, 0, -Math.PI/2, Math.PI/2, terminatorBulge > 0);
+            }
+            this._ctx.closePath();
             this._ctx.fill();
             this._ctx.globalCompositeOperation = 'source-over';
         } else {
-            // More than half lit - shadow is the smaller part
-            this._ctx.ellipse(
-                shadowSide === 'left' ? x - size * (illumination - 0.5) : x + size * (illumination - 0.5),
-                y,
-                ellipseWidth,
-                size,
-                0, 0, Math.PI * 2
-            );
+            // More than half lit - just draw the shadow crescent
+            this._ctx.beginPath();
+            
+            if (shadowSide === 'left') {
+                // Waxing gibbous: shadow on left
+                this._ctx.arc(x, y, size, Math.PI/2, -Math.PI/2, false); // left semicircle  
+                this._ctx.ellipse(x, y, Math.abs(terminatorBulge), size, 0, -Math.PI/2, Math.PI/2, terminatorBulge < 0);
+            } else {
+                // Waning gibbous: shadow on right
+                this._ctx.arc(x, y, size, -Math.PI/2, Math.PI/2, false); // right semicircle
+                this._ctx.ellipse(x, y, Math.abs(terminatorBulge), size, 0, Math.PI/2, -Math.PI/2, terminatorBulge < 0);
+            }
+            this._ctx.closePath();
             this._ctx.fillStyle = 'rgba(15, 20, 30, 0.95)';
             this._ctx.fill();
         }
