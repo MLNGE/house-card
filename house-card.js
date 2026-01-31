@@ -7,8 +7,9 @@
  * * FEAT: Moon phases with realistic rendering.
  * * FEAT: Shooting stars at night.
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
+ * * FIX: Moon phase now renders actual illumination percentage.
  * 
- * @version 1.17.0
+ * @version 1.17.1
  */
 
 const TRANSLATIONS = {
@@ -605,35 +606,49 @@ class HouseCard extends HTMLElement {
     }
 
     _getMoonPhase() {
-        // Try to get from Home Assistant entity first
+        // Always calculate the astronomical phase for accurate illumination
+        const calculated = this._calculateMoonPhase();
+        
+        // Try to get phase name from Home Assistant entity (more reliable for name)
         const moonEnt = this._config.moon_entity || 'sensor.moon_phase';
         if (this._hass.states[moonEnt]) {
-            return this._hass.states[moonEnt].state;
+            return {
+                name: this._hass.states[moonEnt].state,
+                illumination: calculated.illumination,
+                phaseValue: calculated.phaseValue
+            };
         }
-        // Fallback: calculate astronomically
-        return this._calculateMoonPhase();
+        return calculated;
     }
 
     _calculateMoonPhase() {
         // Astronomical calculation based on synodic month
-        // Known new moon: January 6, 2000 18:14 UTC
-        const knownNewMoon = new Date('2000-01-06T18:14:00Z').getTime();
-        const synodicMonth = 29.53058867; // days
+        // Use a recent known new moon for better accuracy (reduces cumulative drift)
+        // Known new moon: January 29, 2025 12:36 UTC (verified astronomical data)
+        const knownNewMoon = new Date('2025-01-29T12:36:00Z').getTime();
+        const synodicMonth = 29.530588853; // Average synodic month in days (more precise)
         const now = Date.now();
         const daysSinceNew = (now - knownNewMoon) / (1000 * 60 * 60 * 24);
-        const moonAge = daysSinceNew % synodicMonth;
-        const phase = moonAge / synodicMonth; // 0 to 1
+        const moonAge = ((daysSinceNew % synodicMonth) + synodicMonth) % synodicMonth; // Handle negative values
+        const phaseValue = moonAge / synodicMonth; // 0 to 1
+        
+        // Calculate illumination: 0 at new moon, 1 at full moon, 0 at next new moon
+        // Use cosine function for smooth transition
+        const illumination = (1 - Math.cos(phaseValue * 2 * Math.PI)) / 2;
         
         // Map to phase names
-        if (phase < 0.0625) return 'new_moon';
-        if (phase < 0.1875) return 'waxing_crescent';
-        if (phase < 0.3125) return 'first_quarter';
-        if (phase < 0.4375) return 'waxing_gibbous';
-        if (phase < 0.5625) return 'full_moon';
-        if (phase < 0.6875) return 'waning_gibbous';
-        if (phase < 0.8125) return 'last_quarter';
-        if (phase < 0.9375) return 'waning_crescent';
-        return 'new_moon';
+        let name;
+        if (phaseValue < 0.0625) name = 'new_moon';
+        else if (phaseValue < 0.1875) name = 'waxing_crescent';
+        else if (phaseValue < 0.3125) name = 'first_quarter';
+        else if (phaseValue < 0.4375) name = 'waxing_gibbous';
+        else if (phaseValue < 0.5625) name = 'full_moon';
+        else if (phaseValue < 0.6875) name = 'waning_gibbous';
+        else if (phaseValue < 0.8125) name = 'last_quarter';
+        else if (phaseValue < 0.9375) name = 'waning_crescent';
+        else name = 'new_moon';
+        
+        return { name, illumination, phaseValue };
     }
 
     _drawMoon(cloudCoverage) {
@@ -641,8 +656,11 @@ class HouseCard extends HTMLElement {
         const isNight = this._hass.states[sunEnt]?.state === 'below_horizon';
         if (!isNight) return; // Only draw moon at night
         
-        const phase = this._getMoonPhase();
-        if (phase === 'new_moon') return; // New moon is not visible
+        const phaseData = this._getMoonPhase();
+        const phaseName = phaseData.name || phaseData;
+        const illumination = phaseData.illumination ?? 0.5;
+        
+        if (phaseName === 'new_moon') return; // New moon is not visible
         
         const posX = (this._config.moon_position_x ?? 85) / 100 * this._canvas.width;
         const posY = (this._config.moon_position_y ?? 15) / 100 * this._canvas.height;
@@ -657,7 +675,7 @@ class HouseCard extends HTMLElement {
         
         // Draw glow first (behind the moon)
         if (this._config.moon_glow !== false) {
-            this._drawMoonGlow(posX, posY, baseSize, phase);
+            this._drawMoonGlow(posX, posY, baseSize, phaseName, illumination);
         }
         
         // Draw moon base (lit portion)
@@ -678,23 +696,19 @@ class HouseCard extends HTMLElement {
         // Draw subtle crater texture
         this._drawMoonCraters(posX, posY, baseSize);
         
-        // Draw phase shadow
-        this._drawPhaseShadow(posX, posY, baseSize, phase);
+        // Draw phase shadow using actual illumination
+        this._drawPhaseShadow(posX, posY, baseSize, phaseName, illumination);
         
         this._ctx.restore();
     }
 
-    _drawMoonGlow(x, y, size, phase) {
+    _drawMoonGlow(x, y, size, phase, illumination = 0.5) {
         // Animate glow intensity
         this._moonGlowPhase += 0.02;
         const glowPulse = 1 + Math.sin(this._moonGlowPhase) * 0.1;
         
-        // Glow intensity based on phase (full moon = brightest)
-        let glowIntensity = 0.3;
-        if (phase === 'full_moon') glowIntensity = 0.6;
-        else if (phase.includes('gibbous')) glowIntensity = 0.45;
-        else if (phase.includes('quarter')) glowIntensity = 0.35;
-        else if (phase.includes('crescent')) glowIntensity = 0.25;
+        // Glow intensity based on actual illumination (0.2 to 0.6 range)
+        const glowIntensity = 0.2 + illumination * 0.4;
         
         // Outer glow
         const outerGlow = this._ctx.createRadialGradient(x, y, size * 0.5, x, y, size * 4 * glowPulse);
@@ -736,43 +750,18 @@ class HouseCard extends HTMLElement {
         });
     }
 
-    _drawPhaseShadow(x, y, size, phase) {
-        // Determine shadow parameters based on phase
-        let shadowSide = 'left'; // Which side is in shadow
-        let illumination = 0.5;   // 0 = new moon, 1 = full moon
+    _drawPhaseShadow(x, y, size, phase, illumination) {
+        // Determine shadow side based on phase name (waxing = shadow on left, waning = shadow on right)
+        let shadowSide = 'left';
         
-        switch (phase) {
-            case 'new_moon':
-                illumination = 0;
-                break;
-            case 'waxing_crescent':
-                shadowSide = 'left';
-                illumination = 0.15;
-                break;
-            case 'first_quarter':
-                shadowSide = 'left';
-                illumination = 0.5;
-                break;
-            case 'waxing_gibbous':
-                shadowSide = 'left';
-                illumination = 0.85;
-                break;
-            case 'full_moon':
-                illumination = 1;
-                return; // No shadow needed
-            case 'waning_gibbous':
-                shadowSide = 'right';
-                illumination = 0.85;
-                break;
-            case 'last_quarter':
-                shadowSide = 'right';
-                illumination = 0.5;
-                break;
-            case 'waning_crescent':
-                shadowSide = 'right';
-                illumination = 0.15;
-                break;
+        if (phase === 'new_moon') {
+            illumination = 0;
+        } else if (phase === 'full_moon' || illumination >= 0.99) {
+            return; // No shadow needed for full moon
+        } else if (phase.includes('waning') || phase === 'last_quarter') {
+            shadowSide = 'right';
         }
+        // waxing phases and first_quarter keep shadowSide = 'left'
         
         // Create clipping region for the moon circle
         this._ctx.save();
