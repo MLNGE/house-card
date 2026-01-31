@@ -9,15 +9,29 @@
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
  * * FEAT: Sun rendering during daytime with animated glow and rays.
  * * FIX: Moon phase now renders actual illumination percentage.
+ * * PERF: Throttle badge and window light updates (skip if unchanged).
  * 
- * @version 1.21.1
+ * @version 1.21.2
  */
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONSTANTS & TRANSLATIONS
+// ═══════════════════════════════════════════════════════════════════════════════
 
 const TRANSLATIONS = {
     en: { loading: "Loading...", home_median: "Home" }
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// HOUSE CARD CLASS
+// ═══════════════════════════════════════════════════════════════════════════════
+
 class HouseCard extends HTMLElement {
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // LIFECYCLE & CONFIGURATION
+    // ───────────────────────────────────────────────────────────────────────────
+
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
@@ -44,6 +58,13 @@ class HouseCard extends HTMLElement {
       // Sun tracking
       this._sunGlowPhase = 0;
       this._sunRayRotation = 0;
+      
+      // Badge update throttling
+      this._lastBadgeData = null;
+      this._lastBadgeUpdate = 0;
+      
+      // Window lights update throttling
+      this._lastWindowLightsData = null;
       
       // Visibility tracking
       this._isVisible = false;
@@ -196,6 +217,10 @@ class HouseCard extends HTMLElement {
       }
     }
 
+    // ───────────────────────────────────────────────────────────────────────────
+    // BACKGROUND IMAGE CALCULATION
+    // ───────────────────────────────────────────────────────────────────────────
+
     _calculateImage() {
         const path = this._config.image_path || "/local/community/house-card/images/";
         const sunState = this._hass.states[this._config.sun_entity || 'sun.sun']?.state || 'above_horizon';
@@ -230,6 +255,10 @@ class HouseCard extends HTMLElement {
         }
         return `${path}${season}_${timeOfDay}.png`;
     }
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // DATA UPDATES & STATE MANAGEMENT
+    // ───────────────────────────────────────────────────────────────────────────
 
     _updateData() {
       if (!this._hass || !this.shadowRoot.querySelector('.card')) return;
@@ -301,10 +330,35 @@ class HouseCard extends HTMLElement {
         this._animate();
       }
     }
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // UI LAYER UPDATES (Badges, Windows, Nav, Decorations)
+    // ───────────────────────────────────────────────────────────────────────────
   
     _updateBadges(rooms) {
       const container = this.shadowRoot.querySelector('.badges-layer');
       if (!container) return;
+      
+      // Throttle: Create a hash of current badge data to detect changes
+      const badgeDataHash = rooms.map(r => 
+        `${r.entity}:${r.value}:${r.humidity}:${r.co2}:${r.x}:${r.y}`
+      ).join('|');
+      
+      // Skip update if data hasn't changed (throttle DOM updates)
+      const now = Date.now();
+      if (this._lastBadgeData === badgeDataHash && 
+          this._badgesDelegated && 
+          (now - this._lastBadgeUpdate) < 1000) {
+        return;
+      }
+      
+      // Only do full DOM rebuild if data actually changed
+      if (this._lastBadgeData === badgeDataHash && this._badgesDelegated) {
+        return;
+      }
+      
+      this._lastBadgeData = badgeDataHash;
+      this._lastBadgeUpdate = now;
       
       // 1. Generate HTML
       container.innerHTML = rooms.map((room, index) => {
@@ -370,6 +424,10 @@ class HouseCard extends HTMLElement {
           this._badgesDelegated = true;
       }
     }
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // INTERACTIONS & EVENTS
+    // ───────────────────────────────────────────────────────────────────────────
     
     _handleTapAction(action, room) {
         switch (action.action) {
@@ -430,6 +488,10 @@ class HouseCard extends HTMLElement {
         }
     }
 
+    // ───────────────────────────────────────────────────────────────────────────
+    // UTILITY METHODS
+    // ───────────────────────────────────────────────────────────────────────────
+
     _getTempColorClass(t) {
       if (t < 19) return 'is-cold'; if (t < 23) return 'is-optimal'; if (t < 25) return 'is-warm'; return 'is-hot';
     }
@@ -465,6 +527,10 @@ class HouseCard extends HTMLElement {
         return isNight;
     }
 
+    // ───────────────────────────────────────────────────────────────────────────
+    // WINDOW LIGHTS
+    // ───────────────────────────────────────────────────────────────────────────
+
     _updateWindowLights() {
         const container = this.shadowRoot.querySelector('.window-lights-layer');
         if (!container || !this._config.window_lights) return;
@@ -474,6 +540,18 @@ class HouseCard extends HTMLElement {
         const glowIntensity = this._config.window_glow_intensity ?? 1.0;
         const glowSize = this._config.window_glow_size ?? 1.0;
         const defaultGlowColor = this._config.window_glow_color || '#FFA64D';
+        
+        // Throttle: Create a hash of current window states to detect changes
+        const windowDataHash = windowLights.map(win => {
+            const entity = this._hass.states[win.entity];
+            return `${win.entity}:${entity?.state}:${entity?.attributes?.brightness}`;
+        }).join('|');
+        
+        // Skip update if data hasn't changed
+        if (this._lastWindowLightsData === windowDataHash && this._windowLightsDelegated) {
+            return;
+        }
+        this._lastWindowLightsData = windowDataHash;
         
         // Build HTML for window lights
         container.innerHTML = windowLights.map((win, index) => {
@@ -589,6 +667,10 @@ class HouseCard extends HTMLElement {
         }
     }
 
+    // ───────────────────────────────────────────────────────────────────────────
+    // DECORATIONS
+    // ───────────────────────────────────────────────────────────────────────────
+
     _updateDecorations() {
         const container = this.shadowRoot.querySelector('.decorations-layer');
         if (!container || !this._config.decorations) return;
@@ -678,6 +760,10 @@ class HouseCard extends HTMLElement {
         }
         return 0;
     }
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // CELESTIAL BODIES (Moon & Sun)
+    // ───────────────────────────────────────────────────────────────────────────
 
     _getMoonPhase() {
         // Always calculate the astronomical phase for accurate illumination
@@ -1014,6 +1100,10 @@ class HouseCard extends HTMLElement {
         this._ctx.restore();
     }
 
+    // ───────────────────────────────────────────────────────────────────────────
+    // RENDER
+    // ───────────────────────────────────────────────────────────────────────────
+
     _render() {
       this.shadowRoot.innerHTML = `
         <style>
@@ -1251,6 +1341,10 @@ class HouseCard extends HTMLElement {
       if (card) { this._canvas.width = card.clientWidth; this._canvas.height = card.clientHeight; }
     }
 
+    // ───────────────────────────────────────────────────────────────────────────
+    // CANVAS ANIMATIONS
+    // ───────────────────────────────────────────────────────────────────────────
+
     // --- ANIMATIONS ---
     _initStars() {
         this._stars = [];
@@ -1327,6 +1421,7 @@ class HouseCard extends HTMLElement {
         this._ctx.globalAlpha = 1.0;
     }
 
+    // --- WEATHER EFFECTS ---
     _drawFog(speed) {
         if (this._fogParticles.length < 10) {
             this._fogParticles.push({
@@ -1432,7 +1527,7 @@ class HouseCard extends HTMLElement {
           p.y <= canvasHeight && p.x <= canvasWidth + 50 && p.x >= -50
       );
     }
-    
+
     // --- SHOOTING STARS ---
     _handleShootingStars(cloudCoverage) {
         // Don't show shooting stars when too cloudy
@@ -1532,7 +1627,7 @@ class HouseCard extends HTMLElement {
         this._ctx.arc(star.x, star.y, star.size * 4, 0, Math.PI * 2);
         this._ctx.fill();
     }
-    
+
     // --- SEASONAL PARTICLES ---
     _drawSeasonalParticles(windDirX, windSpeed) {
         const seasonEnt = this._config.season_entity;
@@ -1703,7 +1798,8 @@ class HouseCard extends HTMLElement {
         this._ctx.fill();
         this._ctx.stroke();
     }
-    
+
+    // --- LIGHTNING ---
     _handleLightning() {
         this._lightningTimer++;
         if (this._lightningTimer > 200 && Math.random() > 0.98) { this._triggerLightning(); this._lightningTimer = 0; }
