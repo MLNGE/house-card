@@ -10,7 +10,7 @@
  * * FEAT: Sun rendering during daytime with animated glow and rays.
  * * FIX: Moon phase now renders actual illumination percentage.
  * 
- * @version 1.20.0
+ * @version 1.20.1
  */
 
 const TRANSLATIONS = {
@@ -1340,26 +1340,36 @@ class HouseCard extends HTMLElement {
         if (this._clouds.length < target) {
              const newCloud = this._createCloud(false); 
              newCloud.x = dirX > 0 ? -200 : this._canvas.width + 200;
-             newCloud.dirX = dirX; // Store the direction the cloud was created with
+             newCloud.dirX = dirX;
              this._clouds.push(newCloud);
         }
         if (this._clouds.length > target) this._clouds.pop();
-        this._clouds.forEach((cloud, index) => {
-            // Use current wind direction, not the direction when cloud was created
-            cloud.x += baseSpeed * 0.3 * dirX; 
-            // Remove clouds that have exited the screen (check both directions)
-            if (cloud.x > this._canvas.width + 200 || cloud.x < -200) { 
-                this._clouds.splice(index, 1); 
-                return; 
+        
+        // Update and draw clouds
+        for (let i = this._clouds.length - 1; i >= 0; i--) {
+            const cloud = this._clouds[i];
+            cloud.x += baseSpeed * 0.3 * dirX;
+            
+            // Remove clouds that have exited the screen
+            if (cloud.x > this._canvas.width + 200 || cloud.x < -200) {
+                this._clouds.splice(i, 1);
+                continue;
             }
-            this._ctx.save(); this._ctx.translate(cloud.x, cloud.y); this._ctx.scale(cloud.scale, cloud.scale);
+            
+            this._ctx.save();
+            this._ctx.translate(cloud.x, cloud.y);
+            this._ctx.scale(cloud.scale, cloud.scale);
             cloud.puffs.forEach(puff => {
                 const gradient = this._ctx.createRadialGradient(puff.xOffset, puff.yOffset, 0, puff.xOffset, puff.yOffset, puff.radius);
-                gradient.addColorStop(0, `rgba(255, 255, 255, ${puff.opacity * 0.8})`); gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-                this._ctx.fillStyle = gradient; this._ctx.beginPath(); this._ctx.arc(puff.xOffset, puff.yOffset, puff.radius, 0, Math.PI * 2); this._ctx.fill();
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${puff.opacity * 0.8})`);
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                this._ctx.fillStyle = gradient;
+                this._ctx.beginPath();
+                this._ctx.arc(puff.xOffset, puff.yOffset, puff.radius, 0, Math.PI * 2);
+                this._ctx.fill();
             });
             this._ctx.restore();
-        });
+        }
     }
     _createCloud(randomX) {
         const puffs = []; const numPuffs = 4 + Math.floor(Math.random() * 4); const cloudWidth = 100 + Math.random() * 80;
@@ -1421,7 +1431,8 @@ class HouseCard extends HTMLElement {
         }
         
         // Draw and update shooting stars
-        this._shootingStars.forEach((star, index) => {
+        for (let i = this._shootingStars.length - 1; i >= 0; i--) {
+            const star = this._shootingStars[i];
             this._drawShootingStar(star);
             
             // Update position
@@ -1433,9 +1444,9 @@ class HouseCard extends HTMLElement {
             
             // Remove dead stars
             if (star.life <= 0 || star.x > this._canvas.width + 50 || star.y > this._canvas.height + 50) {
-                this._shootingStars.splice(index, 1);
+                this._shootingStars.splice(i, 1);
             }
-        });
+        }
     }
     
     _spawnShootingStar() {
@@ -1525,7 +1536,8 @@ class HouseCard extends HTMLElement {
         }
         
         // Draw and update particles
-        this._seasonalParticles.forEach((p, index) => {
+        for (let i = this._seasonalParticles.length - 1; i >= 0; i--) {
+            const p = this._seasonalParticles[i];
             this._drawSeasonalParticle(p, season);
             
             // Update position with swaying motion
@@ -1536,9 +1548,9 @@ class HouseCard extends HTMLElement {
             
             // Remove particles that are off screen
             if (p.y > this._canvas.height + 20 || p.x < -50 || p.x > this._canvas.width + 50) {
-                this._seasonalParticles.splice(index, 1);
+                this._seasonalParticles.splice(i, 1);
             }
-        });
+        }
     }
     
     _spawnSeasonalParticle(season, windDirX) {
