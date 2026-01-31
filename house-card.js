@@ -7,9 +7,10 @@
  * * FEAT: Moon phases with realistic rendering.
  * * FEAT: Shooting stars at night.
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
+ * * FEAT: Sun rendering during daytime with animated glow and rays.
  * * FIX: Moon phase now renders actual illumination percentage.
  * 
- * @version 1.17.2
+ * @version 1.18.0
  */
 
 const TRANSLATIONS = {
@@ -40,6 +41,10 @@ class HouseCard extends HTMLElement {
       // Moon tracking
       this._moonGlowPhase = 0;
       
+      // Sun tracking
+      this._sunGlowPhase = 0;
+      this._sunRayRotation = 0;
+      
       // Visibility tracking
       this._isVisible = false;
       this._intersectionObserver = null;
@@ -62,6 +67,11 @@ class HouseCard extends HTMLElement {
         moon_position_y: 15,
         moon_size: 1.0,
         moon_glow: true,
+        sun_position_x: 15,
+        sun_position_y: 20,
+        sun_size: 1.0,
+        sun_glow: true,
+        sun_rays: true,
         shooting_stars: true,
         shooting_star_frequency: 0.002,
         seasonal_particles: true,
@@ -732,6 +742,124 @@ class HouseCard extends HTMLElement {
         this._ctx.fill();
     }
 
+    _drawSun(cloudCoverage) {
+        const sunEnt = this._config.sun_entity || 'sun.sun';
+        const isDay = this._hass.states[sunEnt]?.state === 'above_horizon';
+        if (!isDay) return; // Only draw sun during daytime
+        
+        const posX = (this._config.sun_position_x ?? 15) / 100 * this._canvas.width;
+        const posY = (this._config.sun_position_y ?? 20) / 100 * this._canvas.height;
+        const baseSize = 22 * (this._config.sun_size ?? 1.0);
+        
+        // Cloud occlusion - reduce visibility when cloudy
+        const cloudOcclusion = Math.max(0.15, 1 - (cloudCoverage / 100) * 0.85);
+        if (cloudOcclusion <= 0.1) return;
+        
+        this._ctx.save();
+        this._ctx.globalAlpha = cloudOcclusion;
+        
+        // Draw animated rays first (behind the sun)
+        if (this._config.sun_rays !== false) {
+            this._drawSunRays(posX, posY, baseSize);
+        }
+        
+        // Draw glow (behind the sun body)
+        if (this._config.sun_glow !== false) {
+            this._drawSunGlow(posX, posY, baseSize);
+        }
+        
+        // Draw sun body with radial gradient
+        this._ctx.beginPath();
+        this._ctx.arc(posX, posY, baseSize, 0, Math.PI * 2);
+        
+        // Sun surface gradient - bright white center fading to golden yellow
+        const surfaceGrad = this._ctx.createRadialGradient(
+            posX - baseSize * 0.2, posY - baseSize * 0.2, 0,
+            posX, posY, baseSize
+        );
+        surfaceGrad.addColorStop(0, '#FFFFFF');
+        surfaceGrad.addColorStop(0.3, '#FFFDE7');
+        surfaceGrad.addColorStop(0.6, '#FFD700');
+        surfaceGrad.addColorStop(1, '#FFA500');
+        this._ctx.fillStyle = surfaceGrad;
+        this._ctx.fill();
+        
+        this._ctx.restore();
+    }
+
+    _drawSunGlow(x, y, size) {
+        // Animate glow intensity
+        this._sunGlowPhase += 0.015;
+        const glowPulse = 1 + Math.sin(this._sunGlowPhase) * 0.08;
+        
+        // Outer warm glow
+        const outerGlow = this._ctx.createRadialGradient(x, y, size * 0.8, x, y, size * 5 * glowPulse);
+        outerGlow.addColorStop(0, 'rgba(255, 215, 0, 0.4)');
+        outerGlow.addColorStop(0.3, 'rgba(255, 165, 0, 0.2)');
+        outerGlow.addColorStop(0.6, 'rgba(255, 140, 0, 0.1)');
+        outerGlow.addColorStop(1, 'rgba(255, 100, 0, 0)');
+        
+        this._ctx.fillStyle = outerGlow;
+        this._ctx.beginPath();
+        this._ctx.arc(x, y, size * 5 * glowPulse, 0, Math.PI * 2);
+        this._ctx.fill();
+        
+        // Inner bright halo
+        const innerGlow = this._ctx.createRadialGradient(x, y, size, x, y, size * 2);
+        innerGlow.addColorStop(0, 'rgba(255, 255, 200, 0.6)');
+        innerGlow.addColorStop(0.5, 'rgba(255, 230, 150, 0.3)');
+        innerGlow.addColorStop(1, 'rgba(255, 200, 100, 0)');
+        
+        this._ctx.fillStyle = innerGlow;
+        this._ctx.beginPath();
+        this._ctx.arc(x, y, size * 2, 0, Math.PI * 2);
+        this._ctx.fill();
+    }
+
+    _drawSunRays(x, y, size) {
+        // Slowly rotate rays
+        this._sunRayRotation += 0.003;
+        
+        const numRays = 12;
+        const rayLength = size * 2.5;
+        const rayWidth = size * 0.15;
+        
+        this._ctx.save();
+        this._ctx.translate(x, y);
+        this._ctx.rotate(this._sunRayRotation);
+        
+        for (let i = 0; i < numRays; i++) {
+            const angle = (i / numRays) * Math.PI * 2;
+            
+            // Pulsing ray length
+            const pulseOffset = Math.sin(this._sunGlowPhase * 2 + i * 0.5) * 0.15;
+            const currentRayLength = rayLength * (1 + pulseOffset);
+            
+            this._ctx.save();
+            this._ctx.rotate(angle);
+            
+            // Create gradient for ray
+            const rayGrad = this._ctx.createLinearGradient(size * 1.2, 0, size * 1.2 + currentRayLength, 0);
+            rayGrad.addColorStop(0, 'rgba(255, 215, 0, 0.5)');
+            rayGrad.addColorStop(0.5, 'rgba(255, 180, 0, 0.25)');
+            rayGrad.addColorStop(1, 'rgba(255, 150, 0, 0)');
+            
+            // Draw tapered ray
+            this._ctx.beginPath();
+            this._ctx.moveTo(size * 1.2, -rayWidth);
+            this._ctx.lineTo(size * 1.2 + currentRayLength, 0);
+            this._ctx.lineTo(size * 1.2, rayWidth);
+            this._ctx.closePath();
+            
+            this._ctx.fillStyle = rayGrad;
+            this._ctx.fill();
+            
+            this._ctx.restore();
+        }
+        
+        this._ctx.restore();
+    }
+
     _drawMoonCraters(x, y, size) {
         // Subtle crater marks
         const craters = [
@@ -1054,6 +1182,7 @@ class HouseCard extends HTMLElement {
 
       if (isNight) this._drawStars(coverage, now);
       if (isNight) this._drawMoon(coverage);
+      if (!isNight) this._drawSun(coverage);
       if (isNight && this._config.shooting_stars !== false) this._handleShootingStars(coverage);
       if (this._config.seasonal_particles !== false) this._drawSeasonalParticles(windDirX, moveSpeed);
       if (wState === 'fog' || (isNight && ['rainy','cloudy'].includes(wState))) this._drawFog(moveSpeed);
