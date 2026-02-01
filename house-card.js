@@ -11,7 +11,7 @@
  * * FIX: Moon phase now renders actual illumination percentage.
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * 
- * @version 1.22.3
+ * @version 1.23.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -62,6 +62,10 @@ class HouseCard extends HTMLElement {
       // Badge update throttling
       this._lastBadgeData = null;
       this._lastBadgeUpdate = 0;
+      
+      // Badge long press tracking
+      this._longPressTimer = null;
+      this._longPressTriggered = false;
       
       // Window lights update throttling
       this._lastWindowLightsData = null;
@@ -405,7 +409,56 @@ class HouseCard extends HTMLElement {
 
       // 2. Set up event delegation (only once)
       if (!this._badgesDelegated) {
-          container.addEventListener('click', (e) => {
+          // Touch/Mouse down - start long press timer
+          container.addEventListener('mousedown', (e) => {
+              const badge = e.target.closest('.badge');
+              if (badge) {
+                  this._longPressTriggered = false;
+                  this._longPressTimer = setTimeout(() => {
+                      this._longPressTriggered = true;
+                      const index = parseInt(badge.getAttribute('data-index'));
+                      const room = this._config.rooms[index];
+                      if (room) {
+                          this._showEntityMenu(badge, room, e);
+                      }
+                  }, 500); // 500ms long press
+              }
+          });
+          
+          container.addEventListener('touchstart', (e) => {
+              const badge = e.target.closest('.badge');
+              if (badge) {
+                  this._longPressTriggered = false;
+                  this._longPressTimer = setTimeout(() => {
+                      this._longPressTriggered = true;
+                      const index = parseInt(badge.getAttribute('data-index'));
+                      const room = this._config.rooms[index];
+                      if (room) {
+                          this._showEntityMenu(badge, room, e.touches[0]);
+                      }
+                  }, 500);
+              }
+          }, { passive: true });
+          
+          // Cancel long press on move
+          const cancelLongPress = () => {
+              if (this._longPressTimer) {
+                  clearTimeout(this._longPressTimer);
+                  this._longPressTimer = null;
+              }
+          };
+          container.addEventListener('mousemove', cancelLongPress);
+          container.addEventListener('touchmove', cancelLongPress, { passive: true });
+          
+          // Handle click (mouseup/touchend)
+          const handleClick = (e) => {
+              cancelLongPress();
+              
+              if (this._longPressTriggered) {
+                  this._longPressTriggered = false;
+                  return; // Don't trigger click after long press
+              }
+              
               const badge = e.target.closest('.badge');
               if (badge) {
                   e.stopPropagation();
@@ -420,7 +473,11 @@ class HouseCard extends HTMLElement {
                       this._fireMoreInfo(room.entity);
                   }
               }
-          });
+          };
+          
+          container.addEventListener('mouseup', handleClick);
+          container.addEventListener('touchend', handleClick, { passive: true });
+          
           this._badgesDelegated = true;
       }
     }
@@ -428,6 +485,78 @@ class HouseCard extends HTMLElement {
     // ───────────────────────────────────────────────────────────────────────────
     // INTERACTIONS & EVENTS
     // ───────────────────────────────────────────────────────────────────────────
+    
+    _showEntityMenu(badge, room, event) {
+        // Remove any existing menu
+        const existingMenu = this.shadowRoot.querySelector('.entity-menu');
+        if (existingMenu) existingMenu.remove();
+        
+        // Collect available entities
+        const entities = [];
+        if (room.entity) {
+            const state = this._hass.states[room.entity];
+            const name = state?.attributes?.friendly_name || 'Temperature';
+            entities.push({ id: room.entity, label: name, icon: 'mdi:thermometer' });
+        }
+        if (room.humidity_entity) {
+            const state = this._hass.states[room.humidity_entity];
+            const name = state?.attributes?.friendly_name || 'Humidity';
+            entities.push({ id: room.humidity_entity, label: name, icon: 'mdi:water-percent' });
+        }
+        if (room.co2_entity) {
+            const state = this._hass.states[room.co2_entity];
+            const name = state?.attributes?.friendly_name || 'CO₂';
+            entities.push({ id: room.co2_entity, label: name, icon: 'mdi:molecule-co2' });
+        }
+        
+        if (entities.length <= 1) {
+            // No menu needed, just one entity
+            this._fireMoreInfo(room.entity);
+            return;
+        }
+        
+        // Create menu
+        const menu = document.createElement('div');
+        menu.className = 'entity-menu';
+        menu.innerHTML = entities.map(ent => `
+            <div class="entity-menu-item" data-entity="${ent.id}">
+                <ha-icon icon="${ent.icon}"></ha-icon>
+                <span>${ent.label}</span>
+            </div>
+        `).join('');
+        
+        // Position menu near the badge
+        const rect = badge.getBoundingClientRect();
+        const containerRect = this.shadowRoot.querySelector('.card').getBoundingClientRect();
+        menu.style.top = `${rect.top - containerRect.top + rect.height}px`;
+        menu.style.left = `${rect.left - containerRect.left}px`;
+        
+        // Add to shadow DOM
+        this.shadowRoot.querySelector('.card').appendChild(menu);
+        
+        // Handle menu clicks
+        menu.addEventListener('click', (e) => {
+            const item = e.target.closest('.entity-menu-item');
+            if (item) {
+                const entityId = item.getAttribute('data-entity');
+                this._fireMoreInfo(entityId);
+                menu.remove();
+            }
+        });
+        
+        // Close menu on outside click
+        setTimeout(() => {
+            const closeMenu = (e) => {
+                if (!menu.contains(e.target)) {
+                    menu.remove();
+                    document.removeEventListener('click', closeMenu);
+                    this.shadowRoot.removeEventListener('click', closeMenu);
+                }
+            };
+            document.addEventListener('click', closeMenu);
+            this.shadowRoot.addEventListener('click', closeMenu);
+        }, 100);
+    }
     
     _handleTapAction(action, room) {
         switch (action.action) {
@@ -1313,6 +1442,46 @@ class HouseCard extends HTMLElement {
           .badge-content { display: flex; flex-direction: column; line-height: 1; }
           .badge-name { font-size: 0.55rem; color: #aaa; text-transform: uppercase; margin-bottom: 2px; }
           .badge-val { font-size: 0.80rem; font-weight: 700; color: #fff; white-space: nowrap; }
+          
+          /* ENTITY MENU */
+          .entity-menu {
+              position: absolute;
+              background: rgba(30, 30, 30, 0.98);
+              border: 1px solid rgba(255, 255, 255, 0.15);
+              border-radius: 8px;
+              padding: 4px;
+              z-index: 1000;
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+              backdrop-filter: blur(10px);
+              min-width: 150px;
+              animation: menuFadeIn 0.15s ease-out;
+          }
+          
+          @keyframes menuFadeIn {
+              from { opacity: 0; transform: translateY(-5px); }
+              to { opacity: 1; transform: translateY(0); }
+          }
+          
+          .entity-menu-item {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              padding: 10px 12px;
+              cursor: pointer;
+              border-radius: 4px;
+              transition: background 0.2s;
+              color: #fff;
+              font-size: 0.9rem;
+          }
+          
+          .entity-menu-item:hover {
+              background: rgba(255, 255, 255, 0.1);
+          }
+          
+          .entity-menu-item ha-icon {
+              --mdc-icon-size: 20px;
+              color: #64B5F6;
+          }
         </style>
         
         <div class="card">
