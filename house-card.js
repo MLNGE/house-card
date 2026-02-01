@@ -11,7 +11,7 @@
  * * FIX: Moon phase now renders actual illumination percentage.
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * 
- * @version 1.23.2
+ * @version 1.23.3
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -409,83 +409,82 @@ class HouseCard extends HTMLElement {
 
       // 2. Set up event delegation (only once)
       if (!this._badgesDelegated) {
-          // Touch/Mouse down - start long press timer
-          container.addEventListener('mousedown', (e) => {
-              const badge = e.target.closest('.badge');
-              if (badge) {
-                  this._longPressTriggered = false;
-                  this._longPressTimer = setTimeout(() => {
-                      this._longPressTriggered = true;
-                      const index = parseInt(badge.getAttribute('data-index'));
-                      const room = this._config.rooms[index];
-                      if (room) {
-                          this._showEntityMenu(badge, room, e);
-                      }
-                  }, 500); // 500ms long press
-              }
-          });
+          let pressStartTime = 0;
+          let pressedBadge = null;
+          let longPressActive = false;
           
-          container.addEventListener('touchstart', (e) => {
+          // Mouse/touch down - start tracking
+          const handleStart = (e, isTouch) => {
               const badge = e.target.closest('.badge');
-              if (badge) {
-                  this._longPressTriggered = false;
-                  this._longPressTimer = setTimeout(() => {
-                      this._longPressTriggered = true;
-                      const index = parseInt(badge.getAttribute('data-index'));
-                      const room = this._config.rooms[index];
-                      if (room) {
-                          this._showEntityMenu(badge, room, e.touches[0]);
-                      }
-                  }, 500);
-              }
-          }, { passive: true });
+              if (!badge) return;
+              
+              pressedBadge = badge;
+              pressStartTime = Date.now();
+              longPressActive = false;
+              
+              if (this._longPressTimer) clearTimeout(this._longPressTimer);
+              
+              this._longPressTimer = setTimeout(() => {
+                  longPressActive = true;
+                  const index = parseInt(badge.getAttribute('data-index'));
+                  const room = this._config.rooms[index];
+                  if (room) {
+                      this._showEntityMenu(badge, room, e);
+                  }
+              }, 500);
+          };
           
-          // Cancel long press on move
-          const cancelLongPress = () => {
+          // Mouse/touch move - cancel if moved
+          const handleMove = () => {
               if (this._longPressTimer) {
                   clearTimeout(this._longPressTimer);
                   this._longPressTimer = null;
               }
           };
-          container.addEventListener('mousemove', cancelLongPress);
-          container.addEventListener('touchmove', cancelLongPress, { passive: true });
           
-          // Handle click (mouseup/touchend)
-          const handleClick = (e) => {
-              cancelLongPress();
+          // Mouse/touch up - determine action
+          const handleEnd = (e, isTouch) => {
+              if (this._longPressTimer) {
+                  clearTimeout(this._longPressTimer);
+                  this._longPressTimer = null;
+              }
               
-              // Check if clicking on the menu - don't handle
-              const menu = this.shadowRoot.querySelector('.entity-menu');
-              if (menu && menu.contains(e.target)) {
+              // If long press menu is showing, ignore this release
+              if (longPressActive) {
+                  pressedBadge = null;
+                  pressStartTime = 0;
                   return;
               }
               
-              if (this._longPressTriggered) {
-                  // Reset flag after a delay to prevent immediate click-through
-                  setTimeout(() => {
-                      this._longPressTriggered = false;
-                  }, 100);
-                  return; // Don't trigger click after long press
+              const badge = e.target.closest('.badge');
+              if (!badge || badge !== pressedBadge) {
+                  pressedBadge = null;
+                  return;
               }
               
-              const badge = e.target.closest('.badge');
-              if (badge) {
-                  e.stopPropagation();
-                  const index = parseInt(badge.getAttribute('data-index'));
-                  const room = this._config.rooms[index];
-                  
-                  // Check for tap_action configuration
-                  if (room && room.tap_action) {
-                      this._handleTapAction(room.tap_action, room);
-                  } else if (room) {
-                      // Default: open more-info for primary entity
-                      this._fireMoreInfo(room.entity);
-                  }
+              // Normal click - open primary entity
+              const index = parseInt(badge.getAttribute('data-index'));
+              const room = this._config.rooms[index];
+              
+              if (room && room.tap_action) {
+                  this._handleTapAction(room.tap_action, room);
+              } else if (room) {
+                  this._fireMoreInfo(room.entity);
               }
+              
+              pressedBadge = null;
+              pressStartTime = 0;
           };
           
-          container.addEventListener('mouseup', handleClick);
-          container.addEventListener('touchend', handleClick, { passive: true });
+          // Mouse events
+          container.addEventListener('mousedown', (e) => handleStart(e, false));
+          container.addEventListener('mousemove', handleMove);
+          container.addEventListener('mouseup', (e) => handleEnd(e, false));
+          
+          // Touch events
+          container.addEventListener('touchstart', (e) => handleStart(e, true), { passive: true });
+          container.addEventListener('touchmove', handleMove, { passive: true });
+          container.addEventListener('touchend', (e) => handleEnd(e, true), { passive: true });
           
           this._badgesDelegated = true;
       }
@@ -543,46 +542,58 @@ class HouseCard extends HTMLElement {
         // Add to shadow DOM
         this.shadowRoot.querySelector('.card').appendChild(menu);
         
-        // Handle menu clicks (both mouse and touch)
-        const handleMenuClick = (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            const item = e.target.closest('.entity-menu-item');
-            if (item) {
-                const entityId = item.getAttribute('data-entity');
+        // Handle menu item selection
+        const selectMenuItem = (item) => {
+            const entityId = item.getAttribute('data-entity');
+            if (entityId) {
                 this._fireMoreInfo(entityId);
                 menu.remove();
-                // Clean up event listeners
-                document.removeEventListener('click', closeMenu);
-                document.removeEventListener('touchend', closeMenu);
-                this.shadowRoot.removeEventListener('click', closeMenu);
-                this.shadowRoot.removeEventListener('touchend', closeMenu);
+                cleanup();
             }
         };
         
-        menu.addEventListener('click', handleMenuClick);
-        menu.addEventListener('touchend', handleMenuClick);
+        // Handle menu clicks
+        const handleMenuClick = (e) => {
+            e.stopPropagation();
+            const item = e.target.closest('.entity-menu-item');
+            if (item) {
+                selectMenuItem(item);
+            }
+        };
         
         // Close menu on outside click
         const closeMenu = (e) => {
-            // Don't close if clicking within the menu
-            if (menu.contains(e.target)) {
-                return;
+            // Only close if click is outside the menu
+            const clickedMenu = e.target.closest('.entity-menu');
+            if (!clickedMenu) {
+                menu.remove();
+                cleanup();
             }
-            menu.remove();
-            document.removeEventListener('click', closeMenu);
-            document.removeEventListener('touchend', closeMenu);
-            this.shadowRoot.removeEventListener('click', closeMenu);
-            this.shadowRoot.removeEventListener('touchend', closeMenu);
         };
+        
+        // Cleanup listeners
+        const cleanup = () => {
+            document.removeEventListener('mousedown', closeMenu);
+            document.removeEventListener('touchstart', closeMenu);
+        };
+        
+        menu.addEventListener('mousedown', handleMenuClick);
+        menu.addEventListener('touchstart', handleMenuClick, { passive: true });
         
         // Delay adding outside click handlers to prevent immediate triggering
         setTimeout(() => {
-            document.addEventListener('click', closeMenu);
-            document.addEventListener('touchend', closeMenu);
-            this.shadowRoot.addEventListener('click', closeMenu);
-            this.shadowRoot.addEventListener('touchend', closeMenu);
-        }, 100);
+            document.addEventListener('mousedown', closeMenu);
+            document.addEventListener('touchstart', closeMenu, { passive: true });
+        }, 150);
+        
+        // Also remove menu reference when element is removed
+        const observer = new MutationObserver((mutations) => {
+            if (!menu.isConnected) {
+                cleanup();
+                observer.disconnect();
+            }
+        });
+        observer.observe(this.shadowRoot.querySelector('.card'), { childList: true });
     }
     
     _handleTapAction(action, room) {
