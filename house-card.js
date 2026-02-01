@@ -11,7 +11,7 @@
  * * FIX: Moon phase now renders actual illumination percentage.
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * 
- * @version 1.22.0
+ * @version 1.22.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -588,11 +588,14 @@ class HouseCard extends HTMLElement {
             // Apply skew transform for isometric perspective
             const transformStyle = `transform: translate(-50%, -50%) skewX(${skewX}deg) skewY(${skewY}deg);`;
             
+            // Apply extra blur for off windows
+            const offStyle = !isOn ? 'filter: blur(6px);' : '';
+            
             return `
               <div class="window-light ${isOn ? 'is-on' : 'is-off'}" 
                    data-entity="${win.entity}"
                    data-index="${index}"
-                   style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%; ${transformStyle} ${colorStyle} ${debugStyle}">
+                   style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%; ${transformStyle} ${colorStyle} ${offStyle} ${debugStyle}">
               </div>`;
         }).join('');
         
@@ -1171,8 +1174,8 @@ class HouseCard extends HTMLElement {
           }
           .window-light.is-off {
               background: radial-gradient(ellipse at center,
-                  rgba(15, 20, 30, 0.25) 0%,
-                  rgba(15, 20, 30, 0.15) 50%,
+                  rgba(15, 20, 30, 0.4) 0%,
+                  rgba(15, 20, 30, 0.25) 50%,
                   transparent 90%);
               filter: blur(2px);
               mix-blend-mode: multiply;
