@@ -11,7 +11,7 @@
  * * FIX: Moon phase now renders actual illumination percentage.
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * 
- * @version 1.23.0
+ * @version 1.23.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -534,15 +534,20 @@ class HouseCard extends HTMLElement {
         // Add to shadow DOM
         this.shadowRoot.querySelector('.card').appendChild(menu);
         
-        // Handle menu clicks
-        menu.addEventListener('click', (e) => {
+        // Handle menu clicks (both mouse and touch)
+        const handleMenuClick = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
             const item = e.target.closest('.entity-menu-item');
             if (item) {
                 const entityId = item.getAttribute('data-entity');
                 this._fireMoreInfo(entityId);
                 menu.remove();
             }
-        });
+        };
+        
+        menu.addEventListener('click', handleMenuClick);
+        menu.addEventListener('touchend', handleMenuClick);
         
         // Close menu on outside click
         setTimeout(() => {
@@ -550,11 +555,15 @@ class HouseCard extends HTMLElement {
                 if (!menu.contains(e.target)) {
                     menu.remove();
                     document.removeEventListener('click', closeMenu);
+                    document.removeEventListener('touchend', closeMenu);
                     this.shadowRoot.removeEventListener('click', closeMenu);
+                    this.shadowRoot.removeEventListener('touchend', closeMenu);
                 }
             };
             document.addEventListener('click', closeMenu);
+            document.addEventListener('touchend', closeMenu);
             this.shadowRoot.addEventListener('click', closeMenu);
+            this.shadowRoot.addEventListener('touchend', closeMenu);
         }, 100);
     }
     
@@ -1455,6 +1464,7 @@ class HouseCard extends HTMLElement {
               backdrop-filter: blur(10px);
               min-width: 150px;
               animation: menuFadeIn 0.15s ease-out;
+              pointer-events: auto;
           }
           
           @keyframes menuFadeIn {
@@ -1472,6 +1482,10 @@ class HouseCard extends HTMLElement {
               transition: background 0.2s;
               color: #fff;
               font-size: 0.9rem;
+              pointer-events: auto;
+              user-select: none;
+              -webkit-user-select: none;
+              -webkit-tap-highlight-color: transparent;
           }
           
           .entity-menu-item:hover {
