@@ -11,7 +11,7 @@
  * * FIX: Moon phase now renders actual illumination percentage.
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * 
- * @version 1.23.1
+ * @version 1.23.2
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -454,8 +454,17 @@ class HouseCard extends HTMLElement {
           const handleClick = (e) => {
               cancelLongPress();
               
+              // Check if clicking on the menu - don't handle
+              const menu = this.shadowRoot.querySelector('.entity-menu');
+              if (menu && menu.contains(e.target)) {
+                  return;
+              }
+              
               if (this._longPressTriggered) {
-                  this._longPressTriggered = false;
+                  // Reset flag after a delay to prevent immediate click-through
+                  setTimeout(() => {
+                      this._longPressTriggered = false;
+                  }, 100);
                   return; // Don't trigger click after long press
               }
               
@@ -543,6 +552,11 @@ class HouseCard extends HTMLElement {
                 const entityId = item.getAttribute('data-entity');
                 this._fireMoreInfo(entityId);
                 menu.remove();
+                // Clean up event listeners
+                document.removeEventListener('click', closeMenu);
+                document.removeEventListener('touchend', closeMenu);
+                this.shadowRoot.removeEventListener('click', closeMenu);
+                this.shadowRoot.removeEventListener('touchend', closeMenu);
             }
         };
         
@@ -550,16 +564,20 @@ class HouseCard extends HTMLElement {
         menu.addEventListener('touchend', handleMenuClick);
         
         // Close menu on outside click
+        const closeMenu = (e) => {
+            // Don't close if clicking within the menu
+            if (menu.contains(e.target)) {
+                return;
+            }
+            menu.remove();
+            document.removeEventListener('click', closeMenu);
+            document.removeEventListener('touchend', closeMenu);
+            this.shadowRoot.removeEventListener('click', closeMenu);
+            this.shadowRoot.removeEventListener('touchend', closeMenu);
+        };
+        
+        // Delay adding outside click handlers to prevent immediate triggering
         setTimeout(() => {
-            const closeMenu = (e) => {
-                if (!menu.contains(e.target)) {
-                    menu.remove();
-                    document.removeEventListener('click', closeMenu);
-                    document.removeEventListener('touchend', closeMenu);
-                    this.shadowRoot.removeEventListener('click', closeMenu);
-                    this.shadowRoot.removeEventListener('touchend', closeMenu);
-                }
-            };
             document.addEventListener('click', closeMenu);
             document.addEventListener('touchend', closeMenu);
             this.shadowRoot.addEventListener('click', closeMenu);
