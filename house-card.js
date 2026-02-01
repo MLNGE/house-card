@@ -11,7 +11,7 @@
  * * FIX: Moon phase now renders actual illumination percentage.
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * 
- * @version 1.22.2
+ * @version 1.22.3
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1174,8 +1174,8 @@ class HouseCard extends HTMLElement {
           }
           .window-light.is-off {
               background: radial-gradient(ellipse at center,
-                  rgba(5, 10, 15, 0.6) 0%,
-                  rgba(5, 10, 15, 0.35) 50%,
+                  rgba(0, 5, 10, 0.85) 0%,
+                  rgba(0, 5, 10, 0.5) 50%,
                   transparent 90%);
               filter: blur(2px);
               mix-blend-mode: multiply;
