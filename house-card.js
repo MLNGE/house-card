@@ -11,7 +11,7 @@
  * * FIX: Moon phase now renders actual illumination percentage.
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * 
- * @version 1.21.2
+ * @version 1.22.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -604,8 +604,9 @@ class HouseCard extends HTMLElement {
                     e.stopPropagation();
                     const entityId = windowEl.getAttribute('data-entity');
                     if (entityId) {
-                        // Toggle the light
-                        this._hass.callService('light', 'toggle', { entity_id: entityId });
+                        // Toggle the light or switch
+                        const domain = entityId.split('.')[0];
+                        this._hass.callService(domain, 'toggle', { entity_id: entityId });
                     }
                 }
             });
