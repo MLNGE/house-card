@@ -11,7 +11,7 @@
  * * FIX: Moon phase now renders actual illumination percentage.
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * 
- * @version 1.23.3
+ * @version 1.23.4
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -412,15 +412,21 @@ class HouseCard extends HTMLElement {
           let pressStartTime = 0;
           let pressedBadge = null;
           let longPressActive = false;
+          let startX = 0;
+          let startY = 0;
+          const MOVE_THRESHOLD = 10; // pixels - allow small movement before canceling
           
           // Mouse/touch down - start tracking
           const handleStart = (e, isTouch) => {
+              const touch = isTouch ? e.touches[0] : e;
               const badge = e.target.closest('.badge');
               if (!badge) return;
               
               pressedBadge = badge;
               pressStartTime = Date.now();
               longPressActive = false;
+              startX = touch.clientX;
+              startY = touch.clientY;
               
               if (this._longPressTimer) clearTimeout(this._longPressTimer);
               
@@ -429,14 +435,21 @@ class HouseCard extends HTMLElement {
                   const index = parseInt(badge.getAttribute('data-index'));
                   const room = this._config.rooms[index];
                   if (room) {
-                      this._showEntityMenu(badge, room, e);
+                      this._showEntityMenu(badge, room, touch);
                   }
               }, 500);
           };
           
-          // Mouse/touch move - cancel if moved
-          const handleMove = () => {
-              if (this._longPressTimer) {
+          // Mouse/touch move - cancel only if moved significantly
+          const handleMove = (e, isTouch) => {
+              if (!this._longPressTimer) return;
+              
+              const touch = isTouch ? e.touches[0] : e;
+              const deltaX = Math.abs(touch.clientX - startX);
+              const deltaY = Math.abs(touch.clientY - startY);
+              
+              // Only cancel if moved more than threshold
+              if (deltaX > MOVE_THRESHOLD || deltaY > MOVE_THRESHOLD) {
                   clearTimeout(this._longPressTimer);
                   this._longPressTimer = null;
               }
@@ -453,6 +466,7 @@ class HouseCard extends HTMLElement {
               if (longPressActive) {
                   pressedBadge = null;
                   pressStartTime = 0;
+                  longPressActive = false;
                   return;
               }
               
@@ -478,12 +492,12 @@ class HouseCard extends HTMLElement {
           
           // Mouse events
           container.addEventListener('mousedown', (e) => handleStart(e, false));
-          container.addEventListener('mousemove', handleMove);
+          container.addEventListener('mousemove', (e) => handleMove(e, false));
           container.addEventListener('mouseup', (e) => handleEnd(e, false));
           
           // Touch events
           container.addEventListener('touchstart', (e) => handleStart(e, true), { passive: true });
-          container.addEventListener('touchmove', handleMove, { passive: true });
+          container.addEventListener('touchmove', (e) => handleMove(e, true), { passive: true });
           container.addEventListener('touchend', (e) => handleEnd(e, true), { passive: true });
           
           this._badgesDelegated = true;
@@ -552,12 +566,14 @@ class HouseCard extends HTMLElement {
             }
         };
         
-        // Handle menu clicks
+        // Handle menu clicks (unified for mouse and touch)
         const handleMenuClick = (e) => {
             e.stopPropagation();
+            e.preventDefault();
             const item = e.target.closest('.entity-menu-item');
             if (item) {
-                selectMenuItem(item);
+                // Small delay to ensure proper event handling on mobile
+                setTimeout(() => selectMenuItem(item), 50);
             }
         };
         
@@ -575,10 +591,13 @@ class HouseCard extends HTMLElement {
         const cleanup = () => {
             document.removeEventListener('mousedown', closeMenu);
             document.removeEventListener('touchstart', closeMenu);
+            menu.removeEventListener('mousedown', handleMenuClick);
+            menu.removeEventListener('touchstart', handleMenuClick);
         };
         
+        // Attach menu handlers - use both mouse and touch
         menu.addEventListener('mousedown', handleMenuClick);
-        menu.addEventListener('touchstart', handleMenuClick, { passive: true });
+        menu.addEventListener('touchstart', handleMenuClick, { passive: false });
         
         // Delay adding outside click handlers to prevent immediate triggering
         setTimeout(() => {
