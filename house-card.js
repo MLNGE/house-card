@@ -13,7 +13,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.24.5
+ * @version 1.24.6
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1527,12 +1527,12 @@ class HouseCard extends HTMLElement {
           }
           .sky-gradient-layer {
               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-              z-index: 0; pointer-events: none; transition: background 2s ease;
+              z-index: 1; pointer-events: none; transition: background 2s ease;
           }
           .gradient-layer {
               background: linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, transparent 40px);
               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-              z-index: 1; transition: all 0.5s ease;
+              z-index: 2; transition: all 0.5s ease;
           }
           .bg-image {
               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -1543,7 +1543,7 @@ class HouseCard extends HTMLElement {
           }
           .dim-layer {
               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-              background: #000; opacity: 0; z-index: 2; pointer-events: none; transition: opacity 2s ease;
+              background: #000; opacity: 0; z-index: 3; pointer-events: none; transition: opacity 2s ease;
           }
           
           /* WINDOW LIGHTS */
