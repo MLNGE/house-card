@@ -13,7 +13,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.24.4
+ * @version 1.24.5
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -105,7 +105,7 @@ class HouseCard extends HTMLElement {
         sun_glow: true,
         sun_rays: true,
         sky_gradient: true,
-        sky_gradient_intensity: 0.2,
+        sky_gradient_intensity: 0.8,
         shooting_stars: true,
         shooting_star_frequency: 0.002,
         seasonal_particles: true,
@@ -1084,10 +1084,7 @@ class HouseCard extends HTMLElement {
 
     _updateSkyGradient() {
         const skyLayer = this.shadowRoot.querySelector('.sky-gradient-layer');
-        if (!skyLayer) {
-            console.log('Sky gradient layer not found!');
-            return;
-        }
+        if (!skyLayer) return;
         
         // Skip if disabled
         if (this._config.sky_gradient === false) {
@@ -1097,7 +1094,6 @@ class HouseCard extends HTMLElement {
         }
         
         const elevation = this._getSunElevation();
-        console.log('Sky gradient enabled, elevation:', elevation);
         
         // Cache gradient if elevation hasn't changed significantly (throttle updates)
         if (this._lastSunElevation !== null && 
@@ -1111,13 +1107,11 @@ class HouseCard extends HTMLElement {
         this._lastSunElevation = elevation;
         
         const { topColor, horizonColor, bottomColor } = this._getSkyGradient(elevation);
-        const intensity = this._config.sky_gradient_intensity ?? 0.3;
+        const intensity = this._config.sky_gradient_intensity ?? 0.8;
         
         // Convert hex to rgba with intensity
         const topRgba = this._hexToRgba(topColor, intensity);
         const bottomRgba = this._hexToRgba(bottomColor, intensity * 0.7);
-        
-        console.log('Applying gradient:', topRgba, bottomRgba);
         
         // Create edge glow effect - top and bottom with transparent center
         // Top glow fades from color to transparent
