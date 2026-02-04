@@ -138,7 +138,7 @@ sun_rays: true                   # Enable rotating sun rays (default: true)
 
 # --- Sky Gradient Configuration ---
 sky_gradient: true               # Enable dynamic sky color transitions (default: true)
-sky_gradient_intensity: 0.6      # Gradient opacity (0.0-1.0, default: 0.6)
+sky_gradient_intensity: 0.2      # Gradient opacity (0.0-1.0, default: 0.2 for subtle effect)
 test_elevation: 0                # Override sun elevation for testing (-90 to 90 degrees)
 
 # --- Shooting Stars ---

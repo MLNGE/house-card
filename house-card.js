@@ -13,7 +13,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.24.0
+ * @version 1.24.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -105,7 +105,7 @@ class HouseCard extends HTMLElement {
         sun_glow: true,
         sun_rays: true,
         sky_gradient: true,
-        sky_gradient_intensity: 0.6,
+        sky_gradient_intensity: 0.2,
         shooting_stars: true,
         shooting_star_frequency: 0.002,
         seasonal_particles: true,
