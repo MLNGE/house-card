@@ -1,4 +1,4 @@
-# � House Card - Multi-Purpose Visualization
+# 🏠 House Card - Multi-Purpose Visualization
 
 ![alt text](image.png)
 
@@ -117,7 +117,10 @@ img_winter_night_fog: false
 weather_entity: weather.forecast_home
 season_entity: sensor.season
 sun_entity: sun.sun
+# Note: The sun.sun entity provides elevation automatically via its 'elevation' attribute.
+# If you have a separate sun elevation sensor, specify it here:
 sun_elevation_entity: sensor.sun_solar_elevation  # Optional: Use if you have a separate elevation sensor
+# Some users may need to enable the elevation attribute in the Sun integration settings
 cloud_coverage_entity: sensor.openweathermap_cloud_coverage  # Optional (0-100%)
 party_mode_entity: input_boolean.gaming_mode  # Optional: Toggles "Gaming Ambient" light effects
 
@@ -139,6 +142,7 @@ sun_rays: true                   # Enable rotating sun rays (default: true)
 # --- Sky Gradient Configuration ---
 sky_gradient: true               # Enable dynamic sky color transitions (default: true)
 sky_gradient_intensity: 0.8      # Gradient opacity (0.0-1.0, default: 0.8)
+# Note: Gradient appears as subtle glow at top/bottom edges, center remains clear
 test_elevation: 0                # Override sun elevation for testing (-90 to 90 degrees)
 
 # --- Shooting Stars ---
