@@ -7,11 +7,13 @@
  * * FEAT: Moon phases with realistic rendering.
  * * FEAT: Shooting stars at night.
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
- * * FEAT: Sun rendering during daytime with animated glow and rays.
+ * * FEAT: Sun rendering with realistic atmospheric design.
+ * * FEAT: Dynamic sky gradients with smooth sunrise/sunset transitions.
  * * FIX: Moon phase now renders actual illumination percentage.
  * * PERF: Throttle badge and window light updates (skip if unchanged).
+ * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.23.5
+ * @version 1.24.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -59,6 +61,10 @@ class HouseCard extends HTMLElement {
       this._sunGlowPhase = 0;
       this._sunRayRotation = 0;
       
+      // Sky gradient caching
+      this._lastSunElevation = null;
+      this._cachedSkyGradient = null;
+      
       // Badge update throttling
       this._lastBadgeData = null;
       this._lastBadgeUpdate = 0;
@@ -87,6 +93,7 @@ class HouseCard extends HTMLElement {
         weather_entity: "weather.forecast_home",
         season_entity: "sensor.season",
         sun_entity: "sun.sun",
+        sun_elevation_entity: null,  // Optional: sensor.sun_solar_elevation
         moon_entity: "sensor.moon_phase",
         moon_position_x: 85,
         moon_position_y: 15,
@@ -97,6 +104,8 @@ class HouseCard extends HTMLElement {
         sun_size: 1.0,
         sun_glow: true,
         sun_rays: true,
+        sky_gradient: true,
+        sky_gradient_intensity: 0.6,
         shooting_stars: true,
         shooting_star_frequency: 0.002,
         seasonal_particles: true,
@@ -951,6 +960,175 @@ class HouseCard extends HTMLElement {
         return 0;
     }
 
+    _getSunElevation() {
+        // Check for test override first
+        if (this._config.test_elevation !== undefined) {
+            return this._config.test_elevation;
+        }
+        
+        // Option 1: Dedicated elevation sensor (e.g., sensor.sun_solar_elevation)
+        if (this._config.sun_elevation_entity) {
+            const elevState = this._hass.states[this._config.sun_elevation_entity];
+            if (elevState && elevState.state !== 'unknown' && elevState.state !== 'unavailable') {
+                const elevation = parseFloat(elevState.state);
+                if (!isNaN(elevation)) {
+                    return elevation;
+                }
+            }
+        }
+        
+        // Option 2: Standard sun.sun entity with elevation attribute
+        const sunEnt = this._config.sun_entity || 'sun.sun';
+        const sunState = this._hass.states[sunEnt];
+        
+        if (sunState && sunState.attributes && sunState.attributes.elevation !== undefined) {
+            const elevation = parseFloat(sunState.attributes.elevation);
+            if (!isNaN(elevation)) {
+                return elevation;
+            }
+        }
+        
+        return null;
+    }
+
+    _lerpColor(color1, color2, factor) {
+        // Linear interpolation between two colors
+        const c1 = this._hexToRgb(color1);
+        const c2 = this._hexToRgb(color2);
+        if (!c1 || !c2) return color1;
+        
+        const r = Math.round(c1.r + (c2.r - c1.r) * factor);
+        const g = Math.round(c1.g + (c2.g - c1.g) * factor);
+        const b = Math.round(c1.b + (c2.b - c1.b) * factor);
+        
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    _getSkyGradient(elevation) {
+        // Define color schemes for different sun elevations
+        // Based on atmospheric Rayleigh scattering
+        
+        let topColor, horizonColor, bottomColor;
+        
+        if (elevation === null || elevation === undefined) {
+            // Fallback to simple day/night
+            const sunEnt = this._config.sun_entity || 'sun.sun';
+            const isNight = this._hass.states[sunEnt]?.state === 'below_horizon';
+            topColor = isNight ? '#0a1628' : '#87CEEB';
+            horizonColor = isNight ? '#1a1f38' : '#B0E0E6';
+            bottomColor = isNight ? '#0f1a2e' : '#E0F6FF';
+        } else if (elevation < -18) {
+            // Night - Astronomical twilight
+            topColor = '#000814';
+            horizonColor = '#0a1628';
+            bottomColor = '#0f1a2e';
+        } else if (elevation < -12) {
+            // Late night - Nautical twilight
+            topColor = '#0a1628';
+            horizonColor = '#1a2645';
+            bottomColor = '#1f2d4a';
+        } else if (elevation < -6) {
+            // Deep twilight - Civil twilight begins
+            topColor = '#1a2645';
+            horizonColor = '#2d3e66';
+            bottomColor = '#3a4a73';
+        } else if (elevation < -4) {
+            // Civil twilight - deep blue with purple hints
+            topColor = '#1e3a5f';
+            horizonColor = '#3d5a80';
+            bottomColor = '#4a6380';
+        } else if (elevation < -2) {
+            // Early dawn/late dusk - blue to purple
+            topColor = '#2e4a6b';
+            horizonColor = '#5d6d8e';
+            bottomColor = '#7689a8';
+        } else if (elevation < 0) {
+            // Sunrise/sunset approaching - purple and orange begin
+            const factor = (elevation + 2) / 2; // 0 to 1
+            topColor = this._lerpColor('#3d5a80', '#4a5f8a', factor);
+            horizonColor = this._lerpColor('#7689a8', '#cc8866', factor);
+            bottomColor = this._lerpColor('#8fa3c0', '#dd9955', factor);
+        } else if (elevation < 2) {
+            // Sunrise/sunset - golden hour begins
+            const factor = elevation / 2; // 0 to 1
+            topColor = this._lerpColor('#4a5f8a', '#d47c5a', factor);
+            horizonColor = this._lerpColor('#cc8866', '#ee9944', factor);
+            bottomColor = this._lerpColor('#dd9955', '#ffaa66', factor);
+        } else if (elevation < 4) {
+            // Golden hour - intense oranges and pinks
+            const factor = (elevation - 2) / 2;
+            topColor = this._lerpColor('#d4685a', '#ee8855', factor);
+            horizonColor = this._lerpColor('#ee9944', '#ffaa55', factor);
+            bottomColor = this._lerpColor('#ffaa66', '#ffcc88', factor);
+        } else if (elevation < 8) {
+            // Late golden hour - transitioning to day
+            const factor = (elevation - 4) / 4;
+            topColor = this._lerpColor('#ee8855', '#87CEEB', factor);
+            horizonColor = this._lerpColor('#ffaa55', '#B0E0E6', factor);
+            bottomColor = this._lerpColor('#ffcc88', '#E0F6FF', factor);
+        } else if (elevation < 15) {
+            // Early day - light blue
+            const factor = (elevation - 8) / 7;
+            topColor = this._lerpColor('#87CEEB', '#5BA3D0', factor);
+            horizonColor = this._lerpColor('#B0E0E6', '#a8d8ea', factor);
+            bottomColor = this._lerpColor('#E0F6FF', '#d4ebf2', factor);
+        } else {
+            // Full daylight - clear blue sky
+            topColor = '#4A90D9';
+            horizonColor = '#87CEEB';
+            bottomColor = '#C8E6F5';
+        }
+        
+        return { topColor, horizonColor, bottomColor };
+    }
+
+    _drawSkyGradient() {
+        // Skip if disabled
+        if (this._config.sky_gradient === false) {
+            return;
+        }
+        
+        const elevation = this._getSunElevation();
+        
+        // Cache gradient if elevation hasn't changed significantly
+        if (this._lastSunElevation !== null && 
+            elevation !== null &&
+            Math.abs(elevation - this._lastSunElevation) < 0.5) {
+            // Use cached gradient
+            if (this._cachedSkyGradient) {
+                this._ctx.fillStyle = this._cachedSkyGradient;
+                this._ctx.fillRect(0, 0, this._canvas.width, this._canvas.height);
+                return;
+            }
+        }
+        
+        // Update cache
+        this._lastSunElevation = elevation;
+        
+        const { topColor, horizonColor, bottomColor } = this._getSkyGradient(elevation);
+        const intensity = this._config.sky_gradient_intensity ?? 0.6;
+        
+        // Create vertical gradient from top (sky) to bottom (horizon)
+        const gradient = this._ctx.createLinearGradient(0, 0, 0, this._canvas.height);
+        
+        // Top of sky
+        gradient.addColorStop(0, topColor);
+        // Middle transition
+        gradient.addColorStop(0.5, horizonColor);
+        // Horizon/bottom
+        gradient.addColorStop(1, bottomColor);
+        
+        // Cache the gradient
+        this._cachedSkyGradient = gradient;
+        
+        // Apply gradient with intensity control
+        this._ctx.save();
+        this._ctx.globalAlpha = intensity;
+        this._ctx.fillStyle = gradient;
+        this._ctx.fillRect(0, 0, this._canvas.width, this._canvas.height);
+        this._ctx.restore();
+    }
+
     // ───────────────────────────────────────────────────────────────────────────
     // CELESTIAL BODIES (Moon & Sun)
     // ───────────────────────────────────────────────────────────────────────────
@@ -1655,6 +1833,9 @@ class HouseCard extends HTMLElement {
       const coverage = this._getCloudCoverage();
 
       this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+
+      // Draw sky gradient first (background layer)
+      this._drawSkyGradient();
 
       if (isNight) this._drawStars(coverage, now);
       if (isNight) this._drawMoon(coverage);

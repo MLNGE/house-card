@@ -13,6 +13,7 @@ This isn't just a sensor display — it's a **living visualization** that respon
 | 🖼️ **Any Background** | Use your own images: house renders, floorplans, photos, pixel art |
 | ⛈️ **Weather Animations** | Rain, snow, fog, lightning, clouds — all animated on canvas |
 | ☀️ **Sun & Moon** | Realistic celestial bodies with accurate phases and animated glow |
+| � **Sky Gradients** | Dynamic sunrise/sunset colors that transition smoothly throughout the day |
 | 🌠 **Atmospheric Effects** | Shooting stars, seasonal particles (autumn leaves, cherry blossoms) |
 | 📊 **Sensor Badges** | Temperature, humidity, CO2, power — positioned anywhere |
 | 💡 **Interactive Lights** | Click windows to toggle lights with realistic glow effects |
@@ -21,8 +22,9 @@ This isn't just a sensor display — it's a **living visualization** that respon
 ## Features
 
 - ⛈️ **Weather Animations** - Rain, snow, fog, lightning, clouds, and stars
-- ☀️ **Daytime Sun** - Animated sun with warm glow and rotating rays
+- ☀️ **Daytime Sun** - Realistic sun with subtle atmospheric glow and light beams
 - 🌙 **Moon Phases** - Realistic moon rendering with accurate illumination and animated glow
+- 🌅 **Sky Gradients** - Beautiful sunrise/sunset color transitions based on real sun elevation
 - 🌠 **Shooting Stars** - Occasional shooting stars streak across the night sky
 - 🍂 **Seasonal Particles** - Autumn leaves and spring cherry blossom petals
 - 📊 **Sensor Badges** - Display temperature, humidity, CO2, power consumption
@@ -115,6 +117,7 @@ img_winter_night_fog: false
 weather_entity: weather.forecast_home
 season_entity: sensor.season
 sun_entity: sun.sun
+sun_elevation_entity: sensor.sun_solar_elevation  # Optional: Use if you have a separate elevation sensor
 cloud_coverage_entity: sensor.openweathermap_cloud_coverage  # Optional (0-100%)
 party_mode_entity: input_boolean.gaming_mode  # Optional: Toggles "Gaming Ambient" light effects
 
@@ -132,6 +135,11 @@ sun_position_y: 20               # Vertical position % (default: 20)
 sun_size: 1.0                    # Scale factor (0.5 = smaller, 1.5 = larger)
 sun_glow: true                   # Enable animated glow effect (default: true)
 sun_rays: true                   # Enable rotating sun rays (default: true)
+
+# --- Sky Gradient Configuration ---
+sky_gradient: true               # Enable dynamic sky color transitions (default: true)
+sky_gradient_intensity: 0.6      # Gradient opacity (0.0-1.0, default: 0.6)
+test_elevation: 0                # Override sun elevation for testing (-90 to 90 degrees)
 
 # --- Shooting Stars ---
 shooting_stars: true             # Enable shooting stars at night (default: true)
@@ -240,6 +248,16 @@ decorations:
 # window_lights_debug: true   # Red dashed outlines for window lights
 # nav_links_debug: true       # Green dashed outlines for navigation links
 # decorations_debug: true     # Magenta dashed outlines for decorations
+
+# --- Testing Sky Gradients ---
+# Override sun elevation to preview different times of day:
+# test_elevation: -20   # Deep night
+# test_elevation: -6    # Civil twilight (deep blue)
+# test_elevation: -2    # Pre-dawn/post-dusk (blue-purple)
+# test_elevation: 0     # Sunrise/Sunset horizon (orange begins)
+# test_elevation: 2     # Golden hour (intense orange/pink)
+# test_elevation: 6     # Late golden hour (transitioning to day)
+# test_elevation: 30    # Midday (clear blue sky)
 ```
 
 ## Position Reference
