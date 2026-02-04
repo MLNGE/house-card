@@ -13,7 +13,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.24.3
+ * @version 1.24.4
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1084,7 +1084,10 @@ class HouseCard extends HTMLElement {
 
     _updateSkyGradient() {
         const skyLayer = this.shadowRoot.querySelector('.sky-gradient-layer');
-        if (!skyLayer) return;
+        if (!skyLayer) {
+            console.log('Sky gradient layer not found!');
+            return;
+        }
         
         // Skip if disabled
         if (this._config.sky_gradient === false) {
@@ -1094,6 +1097,7 @@ class HouseCard extends HTMLElement {
         }
         
         const elevation = this._getSunElevation();
+        console.log('Sky gradient enabled, elevation:', elevation);
         
         // Cache gradient if elevation hasn't changed significantly (throttle updates)
         if (this._lastSunElevation !== null && 
@@ -1112,6 +1116,8 @@ class HouseCard extends HTMLElement {
         // Convert hex to rgba with intensity
         const topRgba = this._hexToRgba(topColor, intensity);
         const bottomRgba = this._hexToRgba(bottomColor, intensity * 0.7);
+        
+        console.log('Applying gradient:', topRgba, bottomRgba);
         
         // Create edge glow effect - top and bottom with transparent center
         // Top glow fades from color to transparent
