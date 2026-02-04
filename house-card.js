@@ -13,7 +13,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.24.1
+ * @version 1.24.2
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1082,51 +1082,56 @@ class HouseCard extends HTMLElement {
         return { topColor, horizonColor, bottomColor };
     }
 
-    _drawSkyGradient() {
+    _updateSkyGradient() {
+        const skyLayer = this.shadowRoot.querySelector('.sky-gradient-layer');
+        if (!skyLayer) return;
+        
         // Skip if disabled
         if (this._config.sky_gradient === false) {
+            skyLayer.style.background = '';
             return;
         }
         
         const elevation = this._getSunElevation();
         
-        // Cache gradient if elevation hasn't changed significantly
+        // Cache gradient if elevation hasn't changed significantly (throttle updates)
         if (this._lastSunElevation !== null && 
             elevation !== null &&
             Math.abs(elevation - this._lastSunElevation) < 0.5) {
-            // Use cached gradient
-            if (this._cachedSkyGradient) {
-                this._ctx.fillStyle = this._cachedSkyGradient;
-                this._ctx.fillRect(0, 0, this._canvas.width, this._canvas.height);
-                return;
-            }
+            return; // Use existing CSS gradient
         }
         
         // Update cache
         this._lastSunElevation = elevation;
         
         const { topColor, horizonColor, bottomColor } = this._getSkyGradient(elevation);
-        const intensity = this._config.sky_gradient_intensity ?? 0.6;
+        const intensity = this._config.sky_gradient_intensity ?? 0.3;
         
-        // Create vertical gradient from top (sky) to bottom (horizon)
-        const gradient = this._ctx.createLinearGradient(0, 0, 0, this._canvas.height);
+        // Convert hex to rgba with intensity
+        const topRgba = this._hexToRgba(topColor, intensity);
+        const bottomRgba = this._hexToRgba(bottomColor, intensity * 0.7);
         
-        // Top of sky
-        gradient.addColorStop(0, topColor);
-        // Middle transition
-        gradient.addColorStop(0.5, horizonColor);
-        // Horizon/bottom
-        gradient.addColorStop(1, bottomColor);
-        
-        // Cache the gradient
-        this._cachedSkyGradient = gradient;
-        
-        // Apply gradient with intensity control
-        this._ctx.save();
-        this._ctx.globalAlpha = intensity;
-        this._ctx.fillStyle = gradient;
-        this._ctx.fillRect(0, 0, this._canvas.width, this._canvas.height);
-        this._ctx.restore();
+        // Create edge glow effect - top and bottom with transparent center
+        // Top glow fades from color to transparent
+        // Bottom glow fades from transparent to color
+        skyLayer.style.background = `
+            linear-gradient(to bottom, 
+                ${topRgba} 0%, 
+                transparent 25%,
+                transparent 75%,
+                ${bottomRgba} 100%)
+        `;
+    }
+
+    _hexToRgba(hex, alpha) {
+        const rgb = this._hexToRgb(hex);
+        if (!rgb) return `rgba(0, 0, 0, ${alpha})`;
+        return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+    }
+
+    // Legacy method kept for compatibility - now calls _updateSkyGradient
+    _drawSkyGradient() {
+        this._updateSkyGradient();
     }
 
     // ───────────────────────────────────────────────────────────────────────────
@@ -1524,10 +1529,14 @@ class HouseCard extends HTMLElement {
               background: var(--card-background-color,var(--fork-u-bg));
               border-radius: var(--ha-card-border-radius,var(--ha-border-radius-lg,20px));
           }
+          .sky-gradient-layer {
+              position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+              z-index: 0; pointer-events: none; transition: background 2s ease;
+          }
           .gradient-layer {
               background: linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, transparent 40px);
               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-              z-index: 0; transition: all 0.5s ease;
+              z-index: 1; transition: all 0.5s ease;
           }
           .bg-image {
               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -1538,7 +1547,7 @@ class HouseCard extends HTMLElement {
           }
           .dim-layer {
               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-              background: #000; opacity: 0; z-index: 1; pointer-events: none; transition: opacity 2s ease;
+              background: #000; opacity: 0; z-index: 2; pointer-events: none; transition: opacity 2s ease;
           }
           
           /* WINDOW LIGHTS */
@@ -1765,6 +1774,7 @@ class HouseCard extends HTMLElement {
         </style>
         
         <div class="card">
+          <div class="sky-gradient-layer"></div>
           <div class="bg-image"></div>
           <div class="gradient-layer"></div>
           <div class="dim-layer"></div>
@@ -1834,8 +1844,8 @@ class HouseCard extends HTMLElement {
 
       this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
 
-      // Draw sky gradient first (background layer)
-      this._drawSkyGradient();
+      // Update sky gradient layer (CSS-based, behind bg-image)
+      this._updateSkyGradient();
 
       if (isNight) this._drawStars(coverage, now);
       if (isNight) this._drawMoon(coverage);
