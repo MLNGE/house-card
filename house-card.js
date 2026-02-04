@@ -11,7 +11,7 @@
  * * FIX: Moon phase now renders actual illumination percentage.
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * 
- * @version 1.23.4
+ * @version 1.23.5
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1098,100 +1098,140 @@ class HouseCard extends HTMLElement {
         this._ctx.save();
         this._ctx.globalAlpha = cloudOcclusion;
         
-        // Draw animated rays first (behind the sun)
+        // Draw atmospheric light rays first (behind everything)
         if (this._config.sun_rays !== false) {
             this._drawSunRays(posX, posY, baseSize);
         }
         
-        // Draw glow (behind the sun body)
+        // Draw glow and atmospheric haze
         if (this._config.sun_glow !== false) {
             this._drawSunGlow(posX, posY, baseSize);
         }
         
-        // Draw sun body with radial gradient
+        // Draw realistic sun body with atmospheric corona
+        // Outer corona - subtle atmospheric scattering
+        const coronaGrad = this._ctx.createRadialGradient(posX, posY, baseSize * 0.95, posX, posY, baseSize * 1.15);
+        coronaGrad.addColorStop(0, 'rgba(255, 242, 230, 0)');
+        coronaGrad.addColorStop(0.5, 'rgba(255, 225, 180, 0.4)');
+        coronaGrad.addColorStop(1, 'rgba(255, 200, 120, 0.2)');
+        this._ctx.fillStyle = coronaGrad;
         this._ctx.beginPath();
-        this._ctx.arc(posX, posY, baseSize, 0, Math.PI * 2);
+        this._ctx.arc(posX, posY, baseSize * 1.15, 0, Math.PI * 2);
+        this._ctx.fill();
         
-        // Sun surface gradient - bright white center fading to golden yellow
-        const surfaceGrad = this._ctx.createRadialGradient(
-            posX - baseSize * 0.2, posY - baseSize * 0.2, 0,
+        // Main sun body - realistic solar disk
+        const sunGrad = this._ctx.createRadialGradient(
+            posX - baseSize * 0.15, posY - baseSize * 0.15, 0,
             posX, posY, baseSize
         );
-        surfaceGrad.addColorStop(0, '#FFFFFF');
-        surfaceGrad.addColorStop(0.3, '#FFFDE7');
-        surfaceGrad.addColorStop(0.6, '#FFD700');
-        surfaceGrad.addColorStop(1, '#FFA500');
-        this._ctx.fillStyle = surfaceGrad;
+        // Bright white-yellow core transitioning to warmer edges
+        sunGrad.addColorStop(0, '#FFFEF8');      // Nearly pure white center
+        sunGrad.addColorStop(0.4, '#FFFAED');    // Soft cream
+        sunGrad.addColorStop(0.7, '#FFEDBB');    // Warm pale yellow
+        sunGrad.addColorStop(0.9, '#FFE082');    // Golden edge
+        sunGrad.addColorStop(1, 'rgba(255, 210, 100, 0.95)'); // Soft atmospheric edge
+        
+        this._ctx.fillStyle = sunGrad;
+        this._ctx.beginPath();
+        this._ctx.arc(posX, posY, baseSize, 0, Math.PI * 2);
+        this._ctx.fill();
+        
+        // Soft edge blur for atmospheric blending
+        this._ctx.globalCompositeOperation = 'source-over';
+        const edgeBlur = this._ctx.createRadialGradient(posX, posY, baseSize * 0.88, posX, posY, baseSize * 1.02);
+        edgeBlur.addColorStop(0, 'rgba(255, 250, 235, 0)');
+        edgeBlur.addColorStop(0.6, 'rgba(255, 240, 210, 0.15)');
+        edgeBlur.addColorStop(1, 'rgba(255, 230, 180, 0)');
+        this._ctx.fillStyle = edgeBlur;
+        this._ctx.beginPath();
+        this._ctx.arc(posX, posY, baseSize * 1.02, 0, Math.PI * 2);
         this._ctx.fill();
         
         this._ctx.restore();
     }
 
     _drawSunGlow(x, y, size) {
-        // Animate glow intensity
-        this._sunGlowPhase += 0.015;
-        const glowPulse = 1 + Math.sin(this._sunGlowPhase) * 0.08;
+        // Subtle breathing animation for atmospheric effect
+        this._sunGlowPhase += 0.008;
+        const atmospherePulse = 1 + Math.sin(this._sunGlowPhase) * 0.03;
         
-        // Outer warm glow
-        const outerGlow = this._ctx.createRadialGradient(x, y, size * 0.8, x, y, size * 5 * glowPulse);
-        outerGlow.addColorStop(0, 'rgba(255, 215, 0, 0.4)');
-        outerGlow.addColorStop(0.3, 'rgba(255, 165, 0, 0.2)');
-        outerGlow.addColorStop(0.6, 'rgba(255, 140, 0, 0.1)');
-        outerGlow.addColorStop(1, 'rgba(255, 100, 0, 0)');
+        // Extended atmospheric glow - very subtle and diffuse
+        const farGlow = this._ctx.createRadialGradient(x, y, size * 1.5, x, y, size * 6 * atmospherePulse);
+        farGlow.addColorStop(0, 'rgba(255, 248, 225, 0.12)');
+        farGlow.addColorStop(0.2, 'rgba(255, 242, 200, 0.08)');
+        farGlow.addColorStop(0.4, 'rgba(255, 235, 180, 0.05)');
+        farGlow.addColorStop(0.7, 'rgba(255, 220, 150, 0.02)');
+        farGlow.addColorStop(1, 'rgba(255, 210, 130, 0)');
         
-        this._ctx.fillStyle = outerGlow;
+        this._ctx.fillStyle = farGlow;
         this._ctx.beginPath();
-        this._ctx.arc(x, y, size * 5 * glowPulse, 0, Math.PI * 2);
+        this._ctx.arc(x, y, size * 6 * atmospherePulse, 0, Math.PI * 2);
         this._ctx.fill();
         
-        // Inner bright halo
-        const innerGlow = this._ctx.createRadialGradient(x, y, size, x, y, size * 2);
-        innerGlow.addColorStop(0, 'rgba(255, 255, 200, 0.6)');
-        innerGlow.addColorStop(0.5, 'rgba(255, 230, 150, 0.3)');
-        innerGlow.addColorStop(1, 'rgba(255, 200, 100, 0)');
+        // Mid-range atmospheric scattering
+        const midGlow = this._ctx.createRadialGradient(x, y, size * 1.2, x, y, size * 3.5);
+        midGlow.addColorStop(0, 'rgba(255, 250, 235, 0.18)');
+        midGlow.addColorStop(0.3, 'rgba(255, 245, 215, 0.12)');
+        midGlow.addColorStop(0.6, 'rgba(255, 238, 190, 0.06)');
+        midGlow.addColorStop(1, 'rgba(255, 225, 165, 0)');
         
-        this._ctx.fillStyle = innerGlow;
+        this._ctx.fillStyle = midGlow;
+        this._ctx.beginPath();
+        this._ctx.arc(x, y, size * 3.5, 0, Math.PI * 2);
+        this._ctx.fill();
+        
+        // Close atmospheric halo - brightest layer
+        const nearGlow = this._ctx.createRadialGradient(x, y, size * 1.1, x, y, size * 2);
+        nearGlow.addColorStop(0, 'rgba(255, 252, 245, 0.25)');
+        nearGlow.addColorStop(0.5, 'rgba(255, 248, 225, 0.15)');
+        nearGlow.addColorStop(1, 'rgba(255, 240, 200, 0)');
+        
+        this._ctx.fillStyle = nearGlow;
         this._ctx.beginPath();
         this._ctx.arc(x, y, size * 2, 0, Math.PI * 2);
         this._ctx.fill();
     }
 
     _drawSunRays(x, y, size) {
-        // Slowly rotate rays
-        this._sunRayRotation += 0.003;
+        // Very slow rotation for subtle movement
+        this._sunRayRotation += 0.001;
         
-        const numRays = 12;
-        const rayLength = size * 2.5;
-        const rayWidth = size * 0.15;
+        // Fewer, more realistic atmospheric beams
+        const numBeams = 8;
+        const beamLength = size * 4;
         
         this._ctx.save();
         this._ctx.translate(x, y);
         this._ctx.rotate(this._sunRayRotation);
         
-        for (let i = 0; i < numRays; i++) {
-            const angle = (i / numRays) * Math.PI * 2;
+        for (let i = 0; i < numBeams; i++) {
+            const angle = (i / numBeams) * Math.PI * 2;
             
-            // Pulsing ray length
-            const pulseOffset = Math.sin(this._sunGlowPhase * 2 + i * 0.5) * 0.15;
-            const currentRayLength = rayLength * (1 + pulseOffset);
+            // Subtle individual beam animation
+            const beamPhase = Math.sin(this._sunGlowPhase * 0.7 + i * 0.8) * 0.08;
+            const currentBeamLength = beamLength * (1 + beamPhase);
+            const beamOpacity = 0.06 + beamPhase * 0.02;
             
             this._ctx.save();
             this._ctx.rotate(angle);
             
-            // Create gradient for ray
-            const rayGrad = this._ctx.createLinearGradient(size * 1.2, 0, size * 1.2 + currentRayLength, 0);
-            rayGrad.addColorStop(0, 'rgba(255, 215, 0, 0.5)');
-            rayGrad.addColorStop(0.5, 'rgba(255, 180, 0, 0.25)');
-            rayGrad.addColorStop(1, 'rgba(255, 150, 0, 0)');
+            // Create soft atmospheric beam gradient
+            const beamGrad = this._ctx.createLinearGradient(size * 1.3, 0, size * 1.3 + currentBeamLength, 0);
+            beamGrad.addColorStop(0, `rgba(255, 248, 230, ${beamOpacity * 1.2})`);
+            beamGrad.addColorStop(0.3, `rgba(255, 243, 215, ${beamOpacity * 0.8})`);
+            beamGrad.addColorStop(0.6, `rgba(255, 238, 200, ${beamOpacity * 0.4})`);
+            beamGrad.addColorStop(1, 'rgba(255, 235, 190, 0)');
             
-            // Draw tapered ray
+            // Draw wide, soft beam (like crepuscular rays)
+            const beamWidth = size * 0.35;
             this._ctx.beginPath();
-            this._ctx.moveTo(size * 1.2, -rayWidth);
-            this._ctx.lineTo(size * 1.2 + currentRayLength, 0);
-            this._ctx.lineTo(size * 1.2, rayWidth);
+            this._ctx.moveTo(size * 1.3, -beamWidth * 0.3);
+            this._ctx.lineTo(size * 1.3 + currentBeamLength, -beamWidth);
+            this._ctx.lineTo(size * 1.3 + currentBeamLength, beamWidth);
+            this._ctx.lineTo(size * 1.3, beamWidth * 0.3);
             this._ctx.closePath();
             
-            this._ctx.fillStyle = rayGrad;
+            this._ctx.fillStyle = beamGrad;
             this._ctx.fill();
             
             this._ctx.restore();
