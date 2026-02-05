@@ -15,7 +15,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.26.8
+ * @version 1.26.9
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -905,43 +905,34 @@ class HouseCard extends HTMLElement {
         
         let cards = [];
         
-        // Add main bubble card button
-        cards.push({
-            type: 'custom:bubble-card',
-            card_type: 'button',
-            entity: entityId,
-            name: friendlyName,
-            icon: isLight ? 'mdi:lightbulb' : 'mdi:light-switch',
-            show_state: true,
-            show_icon: true,
-            show_name: true
-        });
-        
-        // For lights: add brightness slider using the light entity itself
-        if (isLight && entity.attributes.supported_color_modes && 
-            entity.attributes.supported_color_modes.includes('brightness')) {
+        // Add main control card - use native HA cards
+        if (isLight) {
             cards.push({
-                type: 'custom:bubble-card',
-                card_type: 'slider',
-                entity: entityId,
-                icon: 'mdi:brightness-6',
-                show_state: false,
-                show_name: false
+                type: 'light',
+                entity: entityId
+            });
+        } else {
+            cards.push({
+                type: 'entities',
+                entities: [entityId],
+                show_header_toggle: false
             });
         }
         
-        // Add countdown timer if exists - check more thoroughly
+        // Add countdown timer if exists
         const countdownState = this._hass.states[countdownEntity];
-        console.log('Checking countdown entity:', countdownEntity, 'exists:', !!countdownState);
         
         if (countdownState) {
             cards.push({
-                type: 'custom:bubble-card',
-                card_type: 'slider',
-                entity: countdownEntity,
-                icon: 'mdi:timer-outline',
-                show_state: true,
-                show_name: true
+                type: 'entities',
+                title: 'Auto Off Timer',
+                entities: [
+                    {
+                        entity: countdownEntity,
+                        icon: 'mdi:timer-outline'
+                    }
+                ],
+                show_header_toggle: false
             });
         }
         
