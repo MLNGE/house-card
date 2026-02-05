@@ -15,7 +15,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.25.6
+ * @version 1.25.7
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -899,7 +899,6 @@ class HouseCard extends HTMLElement {
         const domain = entityId.split('.')[0];
         const entityName = entityId.split('.')[1];
         const isLight = domain === 'light';
-        const isSwitch = domain === 'switch';
         
         // Countdown entity for this device
         const countdownEntity = `number.${entityName}_countdown`;
@@ -947,26 +946,18 @@ class HouseCard extends HTMLElement {
             });
         }
         
-        // Use fire-dom-event to trigger browser_mod popup
-        const event = new Event('ll-custom', {
-            bubbles: true,
-            composed: true,
-            cancelable: false
-        });
-        event.detail = {
-            browser_mod: {
-                service: 'popup',
-                data: {
-                    title: friendlyName,
-                    content: {
-                        type: 'vertical-stack',
-                        cards: cards
-                    }
-                }
+        // Call browser_mod through service call
+        this._hass.callService('browser_mod', 'popup', {
+            title: friendlyName,
+            card: {
+                type: 'vertical-stack',
+                cards: cards
             }
-        };
-        
-        window.dispatchEvent(event);
+        }).catch((err) => {
+            // If browser_mod fails, fall back to more-info
+            console.warn('Browser mod popup failed:', err);
+            this._fireMoreInfo(entityId);
+        });
     }
 
     _updateNavLinks() {
