@@ -15,7 +15,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.27.0
+ * @version 1.27.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1536,44 +1536,55 @@ class HouseCard extends HTMLElement {
 
     _drawSunRays(x, y, size) {
         // Very slow rotation for subtle movement
-        this._sunRayRotation += 0.001;
+        this._sunRayRotation += 0.0005;
         
-        // Fewer, more realistic atmospheric beams
-        const numBeams = 8;
-        const beamLength = size * 4;
-        
+        // Create multiple layers of soft hazes instead of distinct rays
         this._ctx.save();
         this._ctx.translate(x, y);
         this._ctx.rotate(this._sunRayRotation);
         
-        for (let i = 0; i < numBeams; i++) {
-            const angle = (i / numBeams) * Math.PI * 2;
+        // Outer haze layer - very subtle and diffuse
+        for (let layer = 0; layer < 3; layer++) {
+            const layerSize = size * (2 + layer * 1.5);
+            const layerOpacity = 0.015 - layer * 0.003;
             
-            // Subtle individual beam animation
-            const beamPhase = Math.sin(this._sunGlowPhase * 0.7 + i * 0.8) * 0.08;
-            const currentBeamLength = beamLength * (1 + beamPhase);
-            const beamOpacity = 0.06 + beamPhase * 0.02;
+            const hazeGrad = this._ctx.createRadialGradient(0, 0, size * 1.2, 0, 0, layerSize);
+            hazeGrad.addColorStop(0, `rgba(255, 250, 235, ${layerOpacity * 1.5})`);
+            hazeGrad.addColorStop(0.3, `rgba(255, 245, 220, ${layerOpacity * 1.0})`);
+            hazeGrad.addColorStop(0.6, `rgba(255, 240, 205, ${layerOpacity * 0.6})`);
+            hazeGrad.addColorStop(1, 'rgba(255, 235, 190, 0)');
+            
+            this._ctx.fillStyle = hazeGrad;
+            this._ctx.beginPath();
+            this._ctx.arc(0, 0, layerSize, 0, Math.PI * 2);
+            this._ctx.fill();
+        }
+        
+        // Add very subtle directional haze (not distinct rays)
+        const numDirections = 12;
+        for (let i = 0; i < numDirections; i++) {
+            const angle = (i / numDirections) * Math.PI * 2;
+            const hazeLength = size * 3.5;
             
             this._ctx.save();
             this._ctx.rotate(angle);
             
-            // Create soft atmospheric beam gradient
-            const beamGrad = this._ctx.createLinearGradient(size * 1.3, 0, size * 1.3 + currentBeamLength, 0);
-            beamGrad.addColorStop(0, `rgba(255, 248, 230, ${beamOpacity * 1.2})`);
-            beamGrad.addColorStop(0.3, `rgba(255, 243, 215, ${beamOpacity * 0.8})`);
-            beamGrad.addColorStop(0.6, `rgba(255, 238, 200, ${beamOpacity * 0.4})`);
-            beamGrad.addColorStop(1, 'rgba(255, 235, 190, 0)');
+            // Very soft directional gradient - more haze than ray
+            const dirGrad = this._ctx.createLinearGradient(size * 1.1, 0, size * 1.1 + hazeLength, 0);
+            dirGrad.addColorStop(0, 'rgba(255, 248, 230, 0.012)');
+            dirGrad.addColorStop(0.5, 'rgba(255, 243, 215, 0.006)');
+            dirGrad.addColorStop(1, 'rgba(255, 238, 200, 0)');
             
-            // Draw wide, soft beam (like crepuscular rays)
-            const beamWidth = size * 0.35;
+            // Draw as very wide, soft gradient (haze, not beam)
+            const hazeSpread = size * 2;
             this._ctx.beginPath();
-            this._ctx.moveTo(size * 1.3, -beamWidth * 0.3);
-            this._ctx.lineTo(size * 1.3 + currentBeamLength, -beamWidth);
-            this._ctx.lineTo(size * 1.3 + currentBeamLength, beamWidth);
-            this._ctx.lineTo(size * 1.3, beamWidth * 0.3);
+            this._ctx.moveTo(size * 1.1, -hazeSpread * 0.5);
+            this._ctx.lineTo(size * 1.1 + hazeLength, -hazeSpread);
+            this._ctx.lineTo(size * 1.1 + hazeLength, hazeSpread);
+            this._ctx.lineTo(size * 1.1, hazeSpread * 0.5);
             this._ctx.closePath();
             
-            this._ctx.fillStyle = beamGrad;
+            this._ctx.fillStyle = dirGrad;
             this._ctx.fill();
             
             this._ctx.restore();
