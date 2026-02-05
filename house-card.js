@@ -15,7 +15,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.25.2
+ * @version 1.25.3
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -949,17 +949,14 @@ class HouseCard extends HTMLElement {
                 });
             }
             
-            const content = {
-                type: 'vertical-stack',
-                cards: cards
-            };
-            
+            // Call browser_mod popup service
             this._hass.callService('browser_mod', 'popup', {
                 title: friendlyName,
-                content: content,
-                size: 'normal',
-                dismissable: true,
-                autoclose: false
+                card: {
+                    type: 'vertical-stack',
+                    cards: cards
+                },
+                size: 'normal'
             });
         } else {
             // Fallback to standard more-info dialog
