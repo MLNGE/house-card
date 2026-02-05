@@ -165,6 +165,7 @@ wind_direction_entity: sensor.wind_bearing  # Wind Bearing (degrees)
 # unit: Custom unit string (default: "°"). Set to "W" for Power (Yellow Spark icon).
 # decimals: Number of decimal places (default: 1). Set to 0 for integers.
 # humidity_entity: Optional second value to display next to main value (e.g. "21° | 45%")
+# flip_icon: true = Icon/dot on right side, text left-aligned (default: false = icon on left)
 # weight: 1 = Include in calculation, 0 = Exclude
 rooms:
   - name: "Living Room"
@@ -178,6 +179,7 @@ rooms:
     entity: sensor.bedroom_temperature
     x: 20
     y: 30
+    flip_icon: true   # Icon on right side instead of left
     weight: 1
 
   - name: "Total Power"

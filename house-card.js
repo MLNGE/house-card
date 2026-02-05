@@ -13,7 +13,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.24.8
+ * @version 1.25.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1723,6 +1723,7 @@ class HouseCard extends HTMLElement {
           }
           
           .badge-content { display: flex; flex-direction: column; line-height: 1; }
+          .flip-icon .badge-content { align-items: flex-end; } /* Align text to right when flipped */
           .badge-name { font-size: 0.55rem; color: #aaa; text-transform: uppercase; margin-bottom: 2px; }
           .badge-val { font-size: 0.80rem; font-weight: 700; color: #fff; white-space: nowrap; }
           
