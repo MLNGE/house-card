@@ -15,7 +15,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.25.7
+ * @version 1.25.8
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -914,10 +914,7 @@ class HouseCard extends HTMLElement {
             icon: isLight ? 'mdi:lightbulb' : 'mdi:light-switch',
             show_state: true,
             show_icon: true,
-            show_name: true,
-            tap_action: {
-                action: 'toggle'
-            }
+            show_name: true
         });
         
         // For lights: add brightness slider
@@ -926,10 +923,8 @@ class HouseCard extends HTMLElement {
                 type: 'custom:bubble-card',
                 card_type: 'slider',
                 entity: entityId,
-                name: 'Brightness',
                 icon: 'mdi:brightness-6',
-                show_state: true,
-                slider_height: '40px'
+                show_state: true
             });
         }
         
@@ -941,15 +936,14 @@ class HouseCard extends HTMLElement {
                 entity: countdownEntity,
                 name: 'Auto Off Timer',
                 icon: 'mdi:timer-outline',
-                show_state: true,
-                slider_height: '40px'
+                show_state: true
             });
         }
         
         // Call browser_mod through service call
         this._hass.callService('browser_mod', 'popup', {
             title: friendlyName,
-            card: {
+            content: {
                 type: 'vertical-stack',
                 cards: cards
             }
