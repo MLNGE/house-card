@@ -15,7 +15,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.26.9
+ * @version 1.27.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -903,6 +903,9 @@ class HouseCard extends HTMLElement {
         // Countdown entity for this device
         const countdownEntity = `number.${entityName}_countdown`;
         
+        // Power measurement entity for switches
+        const powerEntity = `sensor.${entityName}_power`;
+        
         let cards = [];
         
         // Add main control card - use native HA cards
@@ -917,6 +920,22 @@ class HouseCard extends HTMLElement {
                 entities: [entityId],
                 show_header_toggle: false
             });
+            
+            // For switches: add power measurement if exists
+            const powerState = this._hass.states[powerEntity];
+            if (powerState) {
+                cards.push({
+                    type: 'entities',
+                    title: 'Power Measurement',
+                    entities: [
+                        {
+                            entity: powerEntity,
+                            icon: 'mdi:lightning-bolt'
+                        }
+                    ],
+                    show_header_toggle: false
+                });
+            }
         }
         
         // Add countdown timer if exists
