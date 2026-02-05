@@ -15,7 +15,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.25.5
+ * @version 1.25.6
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -947,54 +947,26 @@ class HouseCard extends HTMLElement {
             });
         }
         
-        // Fire custom popup event using fire-dom-event
-        const event = new Event('hass-more-info', {
+        // Use fire-dom-event to trigger browser_mod popup
+        const event = new Event('ll-custom', {
             bubbles: true,
             composed: true,
             cancelable: false
         });
         event.detail = {
-            entityId: entityId
-        };
-        
-        // Create and fire a browser_mod compatible event
-        const browserModEvent = new CustomEvent('ll-custom', {
-            bubbles: true,
-            composed: true,
-            detail: {
-                type: 'fire-dom-event',
-                service: 'browser_mod',
-                service_data: {
-                    command: 'popup',
+            browser_mod: {
+                service: 'popup',
+                data: {
                     title: friendlyName,
-                    card: {
+                    content: {
                         type: 'vertical-stack',
                         cards: cards
                     }
                 }
             }
-        });
+        };
         
-        // Try browser_mod event first
-        this.dispatchEvent(browserModEvent);
-        
-        // Small delay then try direct service call as fallback
-        setTimeout(() => {
-            try {
-                this._hass.callService('browser_mod', 'command', {
-                    command: 'popup',
-                    title: friendlyName,
-                    card: {
-                        type: 'vertical-stack',
-                        cards: cards
-                    }
-                });
-            } catch (error) {
-                // Final fallback to more-info
-                console.warn('Browser mod not available, using more-info dialog');
-                this._fireMoreInfo(entityId);
-            }
-        }, 100);
+        window.dispatchEvent(event);
     }
 
     _updateNavLinks() {
