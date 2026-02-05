@@ -15,7 +15,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.26.0
+ * @version 1.26.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -929,13 +929,14 @@ class HouseCard extends HTMLElement {
             });
         }
         
-        // Call browser_mod through service call
+        // Call browser_mod through service call - target only this device
         this._hass.callService('browser_mod', 'popup', {
             title: friendlyName,
             content: {
                 type: 'vertical-stack',
                 cards: cards
-            }
+            },
+            deviceID: ['this']
         }).catch((err) => {
             // If browser_mod fails, fall back to more-info
             console.warn('Browser mod popup failed:', err);
