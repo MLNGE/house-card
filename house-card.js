@@ -9,11 +9,13 @@
  * * FEAT: Seasonal particles (autumn leaves, spring petals).
  * * FEAT: Sun rendering with realistic atmospheric design.
  * * FEAT: Dynamic sky gradients with smooth sunrise/sunset transitions.
+ * * FEAT: Badge icon flip (individual per badge).
+ * * FEAT: Long-press window lights for bubble card popup with brightness & timer controls.
  * * FIX: Moon phase now renders actual illumination percentage.
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.25.0
+ * @version 1.25.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -797,19 +799,185 @@ class HouseCard extends HTMLElement {
         
         // Set up event delegation (only once)
         if (!this._windowLightsDelegated) {
-            container.addEventListener('click', (e) => {
+            let pressStartTime = 0;
+            let pressedWindow = null;
+            let longPressActive = false;
+            let startX = 0;
+            let startY = 0;
+            const MOVE_THRESHOLD = 10;
+            let windowLongPressTimer = null;
+            
+            // Mouse/touch down
+            const handleStart = (e, isTouch) => {
+                const touch = isTouch ? e.touches[0] : e;
                 const windowEl = e.target.closest('.window-light');
-                if (windowEl) {
-                    e.stopPropagation();
+                if (!windowEl) return;
+                
+                pressedWindow = windowEl;
+                pressStartTime = Date.now();
+                longPressActive = false;
+                startX = touch.clientX;
+                startY = touch.clientY;
+                
+                if (windowLongPressTimer) clearTimeout(windowLongPressTimer);
+                
+                windowLongPressTimer = setTimeout(() => {
+                    longPressActive = true;
                     const entityId = windowEl.getAttribute('data-entity');
                     if (entityId) {
-                        // Toggle the light or switch
-                        const domain = entityId.split('.')[0];
-                        this._hass.callService(domain, 'toggle', { entity_id: entityId });
+                        this._showLightControlPopup(entityId);
                     }
+                }, 500);
+            };
+            
+            // Mouse/touch move
+            const handleMove = (e, isTouch) => {
+                if (!windowLongPressTimer) return;
+                
+                const touch = isTouch ? e.touches[0] : e;
+                const deltaX = Math.abs(touch.clientX - startX);
+                const deltaY = Math.abs(touch.clientY - startY);
+                
+                if (deltaX > MOVE_THRESHOLD || deltaY > MOVE_THRESHOLD) {
+                    clearTimeout(windowLongPressTimer);
+                    windowLongPressTimer = null;
                 }
-            });
+            };
+            
+            // Mouse/touch up
+            const handleEnd = (e, isTouch) => {
+                if (windowLongPressTimer) {
+                    clearTimeout(windowLongPressTimer);
+                    windowLongPressTimer = null;
+                }
+                
+                if (longPressActive) {
+                    pressedWindow = null;
+                    pressStartTime = 0;
+                    longPressActive = false;
+                    return;
+                }
+                
+                const windowEl = e.target.closest('.window-light');
+                if (!windowEl || windowEl !== pressedWindow) {
+                    pressedWindow = null;
+                    return;
+                }
+                
+                e.stopPropagation();
+                const entityId = windowEl.getAttribute('data-entity');
+                if (entityId) {
+                    // Toggle the light or switch
+                    const domain = entityId.split('.')[0];
+                    this._hass.callService(domain, 'toggle', { entity_id: entityId });
+                }
+                
+                pressedWindow = null;
+                pressStartTime = 0;
+            };
+            
+            // Mouse events
+            container.addEventListener('mousedown', (e) => handleStart(e, false));
+            container.addEventListener('mousemove', (e) => handleMove(e, false));
+            container.addEventListener('mouseup', (e) => handleEnd(e, false));
+            
+            // Touch events
+            container.addEventListener('touchstart', (e) => handleStart(e, true), { passive: true });
+            container.addEventListener('touchmove', (e) => handleMove(e, true), { passive: true });
+            container.addEventListener('touchend', (e) => handleEnd(e, true), { passive: true });
+            
             this._windowLightsDelegated = true;
+        }
+    }
+
+    _showLightControlPopup(entityId) {
+        // Get entity state
+        const entity = this._hass.states[entityId];
+        if (!entity) return;
+        
+        const friendlyName = entity.attributes.friendly_name || entityId;
+        const domain = entityId.split('.')[0];
+        const entityName = entityId.split('.')[1];
+        const isLight = domain === 'light';
+        const isSwitch = domain === 'switch';
+        
+        // Countdown entity for this device
+        const countdownEntity = `number.${entityName}_countdown`;
+        
+        // Check if browser_mod is available
+        if (this._hass.services.browser_mod?.popup) {
+            let cards = [];
+            
+            // For lights: show pop-up header, brightness slider, and countdown
+            if (isLight) {
+                cards.push({
+                    type: 'custom:bubble-card',
+                    card_type: 'pop-up',
+                    entity: entityId,
+                    name: friendlyName,
+                    icon: 'mdi:lightbulb',
+                    show_state: true,
+                    show_attribute: false,
+                    show_last_changed: false,
+                    styles: `
+                        .bubble-pop-up-container {
+                            background: var(--ha-card-background, var(--card-background-color, white));
+                            border-radius: 32px;
+                        }
+                    `
+                });
+                
+                cards.push({
+                    type: 'custom:bubble-card',
+                    card_type: 'slider',
+                    entity: entityId,
+                    name: 'Brightness',
+                    icon: 'mdi:brightness-6',
+                    show_state: true,
+                    slider_height: '40px'
+                });
+            } else if (isSwitch) {
+                // For switches: show just a simple header card
+                cards.push({
+                    type: 'custom:bubble-card',
+                    card_type: 'pop-up',
+                    entity: entityId,
+                    name: friendlyName,
+                    icon: 'mdi:light-switch',
+                    show_state: true,
+                    show_attribute: false,
+                    show_last_changed: false
+                });
+            }
+            
+            // Add countdown/timer control if entity exists
+            if (this._hass.states[countdownEntity]) {
+                cards.push({
+                    type: 'entities',
+                    entities: [
+                        {
+                            entity: countdownEntity,
+                            name: 'Auto Off Countdown'
+                        }
+                    ]
+                });
+            }
+            
+            const content = {
+                type: 'vertical-stack',
+                cards: cards
+            };
+            
+            this._hass.callService('browser_mod', 'popup', {
+                title: friendlyName,
+                content: content,
+                size: 'normal',
+                dismissable: true,
+                autoclose: false
+            });
+        } else {
+            // Fallback to standard more-info dialog
+            this._fireMoreInfo(entityId);
         }
     }
 
