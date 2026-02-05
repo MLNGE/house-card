@@ -13,7 +13,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.24.6
+ * @version 1.24.7
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -406,8 +406,9 @@ class HouseCard extends HTMLElement {
             visualHtml = `<div class="badge-dot"></div>`;
         }
 
+        const flipClass = room.flip_icon ? 'flip-icon' : '';
         return `
-          <div class="badge ${colorClass}" data-index="${index}" data-entity="${room.entity}" style="top: ${top}%; left: ${left}%;">
+          <div class="badge ${colorClass} ${flipClass}" data-index="${index}" data-entity="${room.entity}" style="top: ${top}%; left: ${left}%;">
             ${visualHtml}
             <div class="badge-content">
               <span class="badge-name">${room.name}</span>
@@ -1699,6 +1700,7 @@ class HouseCard extends HTMLElement {
               transition: transform 0.3s ease; 
               cursor: pointer; /* Change cursor on hover */
           }
+          .badge.flip-icon { flex-direction: row-reverse; } /* Flip icon to right side */
           .badge:active { transform: translate(-50%, -50%) scale(var(--badge-scale, 1)) scale(0.95); } /* Press effect */
           
           .badge-dot { width: 8px; height: 8px; border-radius: 50%; }
