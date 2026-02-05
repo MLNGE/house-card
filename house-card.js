@@ -15,7 +15,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.26.6
+ * @version 1.26.7
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -905,27 +905,39 @@ class HouseCard extends HTMLElement {
         
         let cards = [];
         
-        // Add light control card
+        // Add main bubble card button
+        cards.push({
+            type: 'custom:bubble-card',
+            card_type: 'button',
+            entity: entityId,
+            name: friendlyName,
+            icon: isLight ? 'mdi:lightbulb' : 'mdi:light-switch',
+            show_state: true,
+            show_icon: true,
+            show_name: true
+        });
+        
+        // For lights: add brightness slider
         if (isLight) {
             cards.push({
-                type: 'light',
+                type: 'custom:bubble-card',
+                card_type: 'slider',
                 entity: entityId,
-                name: friendlyName
-            });
-        } else {
-            // For switches, use entities card
-            cards.push({
-                type: 'entities',
-                entities: [entityId]
+                name: 'Brightness',
+                icon: 'mdi:brightness-6',
+                show_state: true
             });
         }
         
         // Add countdown timer if exists
         if (this._hass.states[countdownEntity]) {
             cards.push({
-                type: 'entities',
-                title: 'Auto Off Timer',
-                entities: [countdownEntity]
+                type: 'custom:bubble-card',
+                card_type: 'slider',
+                entity: countdownEntity,
+                name: 'Auto Off Timer',
+                icon: 'mdi:timer-outline',
+                show_state: true
             });
         }
         
