@@ -15,7 +15,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.25.1
+ * @version 1.25.2
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -908,25 +908,23 @@ class HouseCard extends HTMLElement {
         if (this._hass.services.browser_mod?.popup) {
             let cards = [];
             
-            // For lights: show pop-up header, brightness slider, and countdown
+            // Add main control button
+            cards.push({
+                type: 'custom:bubble-card',
+                card_type: 'button',
+                entity: entityId,
+                name: friendlyName,
+                icon: isLight ? 'mdi:lightbulb' : 'mdi:light-switch',
+                show_state: true,
+                show_icon: true,
+                show_name: true,
+                tap_action: {
+                    action: 'toggle'
+                }
+            });
+            
+            // For lights: add brightness slider
             if (isLight) {
-                cards.push({
-                    type: 'custom:bubble-card',
-                    card_type: 'pop-up',
-                    entity: entityId,
-                    name: friendlyName,
-                    icon: 'mdi:lightbulb',
-                    show_state: true,
-                    show_attribute: false,
-                    show_last_changed: false,
-                    styles: `
-                        .bubble-pop-up-container {
-                            background: var(--ha-card-background, var(--card-background-color, white));
-                            border-radius: 32px;
-                        }
-                    `
-                });
-                
                 cards.push({
                     type: 'custom:bubble-card',
                     card_type: 'slider',
@@ -936,30 +934,18 @@ class HouseCard extends HTMLElement {
                     show_state: true,
                     slider_height: '40px'
                 });
-            } else if (isSwitch) {
-                // For switches: show just a simple header card
-                cards.push({
-                    type: 'custom:bubble-card',
-                    card_type: 'pop-up',
-                    entity: entityId,
-                    name: friendlyName,
-                    icon: 'mdi:light-switch',
-                    show_state: true,
-                    show_attribute: false,
-                    show_last_changed: false
-                });
             }
             
             // Add countdown/timer control if entity exists
             if (this._hass.states[countdownEntity]) {
                 cards.push({
-                    type: 'entities',
-                    entities: [
-                        {
-                            entity: countdownEntity,
-                            name: 'Auto Off Countdown'
-                        }
-                    ]
+                    type: 'custom:bubble-card',
+                    card_type: 'slider',
+                    entity: countdownEntity,
+                    name: 'Auto Off Timer',
+                    icon: 'mdi:timer-outline',
+                    show_state: true,
+                    slider_height: '40px'
                 });
             }
             
