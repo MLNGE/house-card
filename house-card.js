@@ -15,7 +15,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.25.4
+ * @version 1.25.5
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -947,19 +947,54 @@ class HouseCard extends HTMLElement {
             });
         }
         
-        // Try browser_mod popup
-        try {
-            this._hass.callService('browser_mod', 'popup', {
-                title: friendlyName,
-                card: {
-                    type: 'vertical-stack',
-                    cards: cards
+        // Fire custom popup event using fire-dom-event
+        const event = new Event('hass-more-info', {
+            bubbles: true,
+            composed: true,
+            cancelable: false
+        });
+        event.detail = {
+            entityId: entityId
+        };
+        
+        // Create and fire a browser_mod compatible event
+        const browserModEvent = new CustomEvent('ll-custom', {
+            bubbles: true,
+            composed: true,
+            detail: {
+                type: 'fire-dom-event',
+                service: 'browser_mod',
+                service_data: {
+                    command: 'popup',
+                    title: friendlyName,
+                    card: {
+                        type: 'vertical-stack',
+                        cards: cards
+                    }
                 }
-            });
-        } catch (error) {
-            console.warn('Browser mod popup failed, falling back to more-info:', error);
-            this._fireMoreInfo(entityId);
-        }
+            }
+        });
+        
+        // Try browser_mod event first
+        this.dispatchEvent(browserModEvent);
+        
+        // Small delay then try direct service call as fallback
+        setTimeout(() => {
+            try {
+                this._hass.callService('browser_mod', 'command', {
+                    command: 'popup',
+                    title: friendlyName,
+                    card: {
+                        type: 'vertical-stack',
+                        cards: cards
+                    }
+                });
+            } catch (error) {
+                // Final fallback to more-info
+                console.warn('Browser mod not available, using more-info dialog');
+                this._fireMoreInfo(entityId);
+            }
+        }, 100);
     }
 
     _updateNavLinks() {
