@@ -15,7 +15,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.25.9
+ * @version 1.26.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -903,41 +903,39 @@ class HouseCard extends HTMLElement {
         // Countdown entity for this device
         const countdownEntity = `number.${entityName}_countdown`;
         
-        // Build card configuration using entities card with bubble card style
-        let card_config = {
-            type: 'custom:bubble-card',
-            card_type: 'pop-up',
-            hash: '#light-popup',
-            button_type: 'state',
-            entity: entityId,
-            name: friendlyName,
-            icon: isLight ? 'mdi:lightbulb' : 'mdi:light-switch',
-            state: []
-        };
+        let cards = [];
         
-        // Add brightness control for lights
+        // Add light control card
         if (isLight) {
-            card_config.state.push({
+            cards.push({
+                type: 'light',
                 entity: entityId,
-                name: 'Brightness',
-                attribute: 'brightness',
-                slider: true
+                name: friendlyName
+            });
+        } else {
+            // For switches, use entities card
+            cards.push({
+                type: 'entities',
+                entities: [entityId]
             });
         }
         
         // Add countdown timer if exists
         if (this._hass.states[countdownEntity]) {
-            card_config.state.push({
-                entity: countdownEntity,
-                name: 'Auto Off Timer',
-                slider: true
+            cards.push({
+                type: 'entities',
+                title: 'Auto Off Timer',
+                entities: [countdownEntity]
             });
         }
         
         // Call browser_mod through service call
         this._hass.callService('browser_mod', 'popup', {
             title: friendlyName,
-            content: card_config
+            content: {
+                type: 'vertical-stack',
+                cards: cards
+            }
         }).catch((err) => {
             // If browser_mod fails, fall back to more-info
             console.warn('Browser mod popup failed:', err);
