@@ -15,7 +15,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.27.1
+ * @version 1.27.2
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -525,22 +525,22 @@ class HouseCard extends HTMLElement {
         const existingMenu = this.shadowRoot.querySelector('.entity-menu');
         if (existingMenu) existingMenu.remove();
         
-        // Collect available entities
+        // Collect available entities with their current values
         const entities = [];
         if (room.entity) {
             const state = this._hass.states[room.entity];
-            const name = state?.attributes?.friendly_name || 'Temperature';
-            entities.push({ id: room.entity, label: name, icon: 'mdi:thermometer' });
+            const value = state ? `${Math.round(parseFloat(state.state))}${state.attributes?.unit_of_measurement || '°C'}` : '—';
+            entities.push({ id: room.entity, label: value, icon: 'mdi:thermometer' });
         }
         if (room.humidity_entity) {
             const state = this._hass.states[room.humidity_entity];
-            const name = state?.attributes?.friendly_name || 'Humidity';
-            entities.push({ id: room.humidity_entity, label: name, icon: 'mdi:water-percent' });
+            const value = state ? `${Math.round(parseFloat(state.state))}${state.attributes?.unit_of_measurement || '%'}` : '—';
+            entities.push({ id: room.humidity_entity, label: value, icon: 'mdi:water-percent' });
         }
         if (room.co2_entity) {
             const state = this._hass.states[room.co2_entity];
-            const name = state?.attributes?.friendly_name || 'CO₂';
-            entities.push({ id: room.co2_entity, label: name, icon: 'mdi:molecule-co2' });
+            const value = state ? `${Math.round(parseFloat(state.state))} ${state.attributes?.unit_of_measurement || 'ppm'}` : '—';
+            entities.push({ id: room.co2_entity, label: value, icon: 'mdi:molecule-co2' });
         }
         
         if (entities.length <= 1) {
