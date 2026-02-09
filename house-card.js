@@ -2464,7 +2464,7 @@ class HouseCard extends HTMLElement {
         const numWaves = 5;
         for (let i = 0; i < numWaves; i++) {
             this._auroraWaves.push({
-                baseY: 0.08 + (i * 0.06),      // Vertical position (top portion of sky, 8%-38%)
+                baseY: 0.015 + (i * 0.04),      // Vertical position (top portion of sky, 3%-19%)
                 amplitude: 8 + Math.random() * 12,  // Wave height in pixels
                 frequency: 0.003 + Math.random() * 0.004, // Wave frequency
                 speed: 0.0004 + Math.random() * 0.0006,   // Animation speed
@@ -2472,7 +2472,7 @@ class HouseCard extends HTMLElement {
                 thickness: 15 + Math.random() * 25,        // Band thickness
                 // Color: green-cyan core with purple edges, varying per wave
                 hue: 120 + (i * 15) - 10 + Math.random() * 20, // 110-185 range (green to cyan)
-                opacity: 0.08 + Math.random() * 0.07,     // Base opacity per wave
+                opacity: 0.04 + Math.random() * 0.04,     // Base opacity per wave
             });
         }
         this._auroraInitialized = true;
@@ -2549,18 +2549,18 @@ class HouseCard extends HTMLElement {
             // Purple/magenta top edge → green/cyan core → purple/magenta bottom edge
             const coreH = wave.hue;          // Green-cyan
             const edgeH = (wave.hue + 180) % 360; // Complementary (magenta-purple range)
-            grad.addColorStop(0,   `hsla(${edgeH}, 80%, 50%, ${alpha * 0.3})`);
-            grad.addColorStop(0.2, `hsla(${coreH}, 90%, 55%, ${alpha * 0.9})`);
-            grad.addColorStop(0.5, `hsla(${coreH}, 95%, 60%, ${alpha})`);
-            grad.addColorStop(0.8, `hsla(${coreH}, 90%, 55%, ${alpha * 0.9})`);
-            grad.addColorStop(1,   `hsla(${edgeH}, 80%, 50%, ${alpha * 0.3})`);
+            grad.addColorStop(0,   `hsla(${edgeH}, 80%, 50%, ${alpha * 0.2})`);
+            grad.addColorStop(0.2, `hsla(${coreH}, 90%, 55%, ${alpha * 0.7})`);
+            grad.addColorStop(0.5, `hsla(${coreH}, 95%, 60%, ${alpha * 0.8})`);
+            grad.addColorStop(0.8, `hsla(${coreH}, 90%, 55%, ${alpha * 0.7})`);
+            grad.addColorStop(1,   `hsla(${edgeH}, 80%, 50%, ${alpha * 0.2})`);
 
             this._ctx.fillStyle = grad;
             this._ctx.fill();
 
             // Add a soft glow around the band
-            this._ctx.shadowColor = `hsla(${coreH}, 90%, 60%, ${alpha * 0.5})`;
-            this._ctx.shadowBlur = 20;
+            this._ctx.shadowColor = `hsla(${coreH}, 90%, 60%, ${alpha * 0.3})`;
+            this._ctx.shadowBlur = 15;
             this._ctx.fill();
             this._ctx.shadowBlur = 0;
         }
