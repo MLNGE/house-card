@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.28.2
+ * @version 1.28.3
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -45,8 +45,6 @@ class HouseCard extends HTMLElement {
       this._animationFrame = null;
       this._canvas = null;
       this._ctx = null;
-      this._auroraCanvas = null;
-      this._auroraCtx = null;
       this._resizeObserver = null;
       
       this._particles = []; this._clouds = []; this._stars = []; this._fogParticles = [];
@@ -1866,7 +1864,6 @@ class HouseCard extends HTMLElement {
           @keyframes pulse-3 { 0% { transform: scale(0.9); opacity: 0.4; } 50% { transform: scale(1.2); opacity: 0.7; } 100% { transform: scale(0.9); opacity: 0.4; } }
 
           canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
-          #auroraCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }
           
           .badges-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
           
@@ -1959,7 +1956,6 @@ class HouseCard extends HTMLElement {
         
         <div class="card">
           <div class="sky-gradient-layer"></div>
-          <canvas id="auroraCanvas"></canvas>
           <div class="bg-image"></div>
           <div class="gradient-layer"></div>
           <div class="dim-layer"></div>
@@ -1977,8 +1973,6 @@ class HouseCard extends HTMLElement {
       `;
       this._canvas = this.shadowRoot.getElementById('weatherCanvas');
       this._ctx = this._canvas.getContext('2d');
-      this._auroraCanvas = this.shadowRoot.getElementById('auroraCanvas');
-      this._auroraCtx = this._auroraCanvas.getContext('2d');
       // Assume visible on initial render (IntersectionObserver will update this)
       this._isVisible = true;
       setTimeout(() => this._resizeCanvas(), 100);
@@ -1988,14 +1982,7 @@ class HouseCard extends HTMLElement {
     _resizeCanvas() {
       if (!this._canvas) return;
       const card = this.shadowRoot.querySelector('.card');
-      if (card) {
-        this._canvas.width = card.clientWidth;
-        this._canvas.height = card.clientHeight;
-        if (this._auroraCanvas) {
-          this._auroraCanvas.width = card.clientWidth;
-          this._auroraCanvas.height = card.clientHeight;
-        }
-      }
+      if (card) { this._canvas.width = card.clientWidth; this._canvas.height = card.clientHeight; }
     }
 
     // ───────────────────────────────────────────────────────────────────────────
@@ -2018,6 +2005,12 @@ class HouseCard extends HTMLElement {
       if (!this._ctx || !this._hass || !this._canvas) {
         // Missing required components - don't schedule next frame
         this._animationFrame = null;
+        return;
+      }
+      
+      // Pause animation when tab is hidden
+      if (document.visibilityState === 'hidden') {
+        this._animationFrame = requestAnimationFrame(() => this._animate());
         return;
       }
       
@@ -2492,11 +2485,6 @@ class HouseCard extends HTMLElement {
     }
 
     _drawAurora(timestamp) {
-        if (!this._auroraCtx || !this._auroraCanvas) return;
-        
-        // Clear aurora canvas
-        this._auroraCtx.clearRect(0, 0, this._auroraCanvas.width, this._auroraCanvas.height);
-        
         if (!this._isAuroraActive()) {
             // Reset when aurora becomes inactive so it re-initializes next time
             if (this._auroraInitialized) {
@@ -2510,13 +2498,13 @@ class HouseCard extends HTMLElement {
             this._initAuroraWaves();
         }
 
-        const W = this._auroraCanvas.width;
-        const H = this._auroraCanvas.height;
+        const W = this._canvas.width;
+        const H = this._canvas.height;
         const intensity = this._config.aurora_intensity ?? 1.0;
         this._auroraTime = timestamp * 0.001; // Convert to seconds
 
-        this._auroraCtx.save();
-        this._auroraCtx.globalCompositeOperation = 'screen';
+        this._ctx.save();
+        this._ctx.globalCompositeOperation = 'screen';
 
         for (const wave of this._auroraWaves) {
             const t = this._auroraTime;
@@ -2527,7 +2515,7 @@ class HouseCard extends HTMLElement {
             if (alpha <= 0.01) continue;
 
             // Draw the aurora band as a filled shape using sine curves
-            this._auroraCtx.beginPath();
+            this._ctx.beginPath();
 
             // Number of horizontal sample points
             const steps = Math.ceil(W / 4);
@@ -2551,18 +2539,18 @@ class HouseCard extends HTMLElement {
             }
 
             // Build path: top edge left-to-right, bottom edge right-to-left
-            this._auroraCtx.moveTo(topPoints[0].x, topPoints[0].y);
+            this._ctx.moveTo(topPoints[0].x, topPoints[0].y);
             for (let i = 1; i < topPoints.length; i++) {
-                this._auroraCtx.lineTo(topPoints[i].x, topPoints[i].y);
+                this._ctx.lineTo(topPoints[i].x, topPoints[i].y);
             }
             for (let i = bottomPoints.length - 1; i >= 0; i--) {
-                this._auroraCtx.lineTo(bottomPoints[i].x, bottomPoints[i].y);
+                this._ctx.lineTo(bottomPoints[i].x, bottomPoints[i].y);
             }
-            this._auroraCtx.closePath();
+            this._ctx.closePath();
 
             // Create vertical gradient within the band for color variation
             const midY = wave.baseY * H;
-            const grad = this._auroraCtx.createLinearGradient(0, midY - wave.amplitude, 0, midY + wave.thickness + wave.amplitude);
+            const grad = this._ctx.createLinearGradient(0, midY - wave.amplitude, 0, midY + wave.thickness + wave.amplitude);
 
             // Purple/magenta top edge → green/cyan core → purple/magenta bottom edge
             const coreH = wave.hue;          // Green-cyan
@@ -2573,17 +2561,17 @@ class HouseCard extends HTMLElement {
             grad.addColorStop(0.8, `hsla(${coreH}, 90%, 55%, ${alpha * 0.7})`);
             grad.addColorStop(1,   `hsla(${edgeH}, 80%, 50%, ${alpha * 0.2})`);
 
-            this._auroraCtx.fillStyle = grad;
-            this._auroraCtx.fill();
+            this._ctx.fillStyle = grad;
+            this._ctx.fill();
 
             // Add a soft glow around the band
-            this._auroraCtx.shadowColor = `hsla(${coreH}, 90%, 60%, ${alpha * 0.3})`;
-            this._auroraCtx.shadowBlur = 15;
-            this._auroraCtx.fill();
-            this._auroraCtx.shadowBlur = 0;
+            this._ctx.shadowColor = `hsla(${coreH}, 90%, 60%, ${alpha * 0.3})`;
+            this._ctx.shadowBlur = 15;
+            this._ctx.fill();
+            this._ctx.shadowBlur = 0;
         }
 
-        this._auroraCtx.restore();
+        this._ctx.restore();
     }
 
     // --- LIGHTNING ---
