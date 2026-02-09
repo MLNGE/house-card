@@ -15,6 +15,7 @@ This isn't just a sensor display — it's a **living visualization** that respon
 | ☀️ **Sun & Moon** | Realistic celestial bodies with accurate phases and animated glow |
 | � **Sky Gradients** | Dynamic sunrise/sunset colors that transition smoothly throughout the day |
 | 🌠 **Atmospheric Effects** | Shooting stars, seasonal particles (autumn leaves, cherry blossoms) |
+| 🌌 **Aurora Borealis** | Northern lights animation triggered by NOAA aurora visibility sensor |
 | 📊 **Sensor Badges** | Temperature, humidity, CO2, power — positioned anywhere |
 | 💡 **Interactive Lights** | Click windows to toggle lights with realistic glow effects |
 | 🔗 **Navigation Hotspots** | Clickable areas to navigate between HA views |
@@ -27,6 +28,7 @@ This isn't just a sensor display — it's a **living visualization** that respon
 - 🌅 **Sky Gradients** - Beautiful sunrise/sunset color transitions based on real sun elevation
 - 🌠 **Shooting Stars** - Occasional shooting stars streak across the night sky
 - 🍂 **Seasonal Particles** - Autumn leaves and spring cherry blossom petals
+- 🌌 **Aurora Borealis** - Northern lights animation when NOAA sensor detects aurora visibility
 - 📊 **Sensor Badges** - Display temperature, humidity, CO2, power consumption
 - 💡 **Window Lights** - Link light entities to windows (glow when on, dark when off)
 - 🔗 **Navigation Links** - Clickable hotspots to navigate to other HA views
@@ -46,6 +48,7 @@ This card works with standard Home Assistant integrations:
 ### Optional (Enhanced Features)
 - 🌙 [Moon](https://www.home-assistant.io/integrations/moon/) - For accurate moon phase names (illumination calculated automatically)
 - ☁️ [OpenWeatherMap](https://www.home-assistant.io/integrations/openweathermap/) - For cloud coverage data
+- 🌌 [NOAA Aurora](https://www.home-assistant.io/integrations/noaa_aurora/) - For aurora borealis visibility alerts
 - 💨 Wind Speed/Direction sensors - For realistic animation effects
 
 ## Support
@@ -112,6 +115,8 @@ img_winter_night_fog: false
 # test_season_state: autumn
 # Force day or night mode to test backgrounds and night animations (day, night)
 # test_time_of_day: night
+# Force aurora borealis animation to test without the NOAA sensor being active
+# test_aurora: true
 
 # --- Core Entities (REQUIRED) ---
 weather_entity: weather.forecast_home
@@ -153,6 +158,13 @@ shooting_star_frequency: 0.002   # Spawn frequency (0.001 = rare, 0.01 = frequen
 # Autumn: falling leaves | Spring: cherry blossom petals
 seasonal_particles: true         # Enable seasonal particles (default: true)
 seasonal_particle_density: 1.0   # Particle density (0.5 = fewer, 2.0 = more)
+
+# --- Aurora Borealis ---
+# Requires the NOAA Aurora integration: https://www.home-assistant.io/integrations/noaa_aurora/
+# The animation displays wavering green/purple bands across the night sky
+# when the binary sensor reports aurora visibility.
+aurora_entity: binary_sensor.aurora_visibility_visibility_alert  # NOAA aurora binary sensor
+aurora_intensity: 1.0            # Aurora brightness (0.5 = subtle, 2.0 = vivid)
 
 # --- Wind Entities (For Animation Speed/Direction) ---
 wind_speed_entity: sensor.wind_speed      # Wind Speed (km/h)

@@ -11,11 +11,12 @@
  * * FEAT: Dynamic sky gradients with smooth sunrise/sunset transitions.
  * * FEAT: Badge icon flip (individual per badge).
  * * FEAT: Long-press window lights for bubble card popup with brightness & timer controls.
+ * * FEAT: Aurora borealis animation triggered by NOAA aurora visibility sensor.
  * * FIX: Moon phase now renders actual illumination percentage.
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.27.2
+ * @version 1.28.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -52,6 +53,11 @@ class HouseCard extends HTMLElement {
       // Shooting stars
       this._shootingStars = [];
       this._shootingStarTimer = 0;
+      
+      // Aurora borealis
+      this._auroraWaves = [];
+      this._auroraTime = 0;
+      this._auroraInitialized = false;
       
       // Seasonal particles (leaves, petals)
       this._seasonalParticles = [];
@@ -112,6 +118,8 @@ class HouseCard extends HTMLElement {
         shooting_star_frequency: 0.002,
         seasonal_particles: true,
         seasonal_particle_density: 1.0,
+        aurora_entity: null,  // Optional: binary_sensor for NOAA aurora visibility
+        aurora_intensity: 1.0,
         badge_opacity: 0.75,
         cloud_coverage_entity: "sensor.openweathermap_cloud_coverage",
         party_mode_entity: "input_boolean.gaming_mode",
@@ -2021,6 +2029,7 @@ class HouseCard extends HTMLElement {
       this._updateSkyGradient();
 
       if (isNight) this._drawStars(coverage, now);
+      if (isNight) this._drawAurora(now);
       if (isNight) this._drawMoon(coverage);
       if (!isNight) this._drawSun(coverage);
       if (isNight && this._config.shooting_stars !== false) this._handleShootingStars(coverage);
@@ -2436,6 +2445,127 @@ class HouseCard extends HTMLElement {
         this._ctx.closePath();
         this._ctx.fill();
         this._ctx.stroke();
+    }
+
+    // --- AURORA BOREALIS ---
+    _isAuroraActive() {
+        // Test mode override
+        if (this._config.test_aurora === true) return true;
+        
+        // Check binary sensor entity
+        const auroraEnt = this._config.aurora_entity;
+        if (!auroraEnt) return false;
+        const state = this._hass?.states[auroraEnt]?.state;
+        return state === 'on';
+    }
+
+    _initAuroraWaves() {
+        this._auroraWaves = [];
+        const numWaves = 5;
+        for (let i = 0; i < numWaves; i++) {
+            this._auroraWaves.push({
+                baseY: 0.08 + (i * 0.06),      // Vertical position (top portion of sky, 8%-38%)
+                amplitude: 8 + Math.random() * 12,  // Wave height in pixels
+                frequency: 0.003 + Math.random() * 0.004, // Wave frequency
+                speed: 0.0004 + Math.random() * 0.0006,   // Animation speed
+                phase: Math.random() * Math.PI * 2,        // Phase offset
+                thickness: 15 + Math.random() * 25,        // Band thickness
+                // Color: green-cyan core with purple edges, varying per wave
+                hue: 120 + (i * 15) - 10 + Math.random() * 20, // 110-185 range (green to cyan)
+                opacity: 0.08 + Math.random() * 0.07,     // Base opacity per wave
+            });
+        }
+        this._auroraInitialized = true;
+    }
+
+    _drawAurora(timestamp) {
+        if (!this._isAuroraActive()) {
+            // Reset when aurora becomes inactive so it re-initializes next time
+            if (this._auroraInitialized) {
+                this._auroraWaves = [];
+                this._auroraInitialized = false;
+            }
+            return;
+        }
+
+        if (!this._auroraInitialized || this._auroraWaves.length === 0) {
+            this._initAuroraWaves();
+        }
+
+        const W = this._canvas.width;
+        const H = this._canvas.height;
+        const intensity = this._config.aurora_intensity ?? 1.0;
+        this._auroraTime = timestamp * 0.001; // Convert to seconds
+
+        this._ctx.save();
+        this._ctx.globalCompositeOperation = 'screen';
+
+        for (const wave of this._auroraWaves) {
+            const t = this._auroraTime;
+            // Slowly oscillating master opacity for breathing effect
+            const breathe = 0.6 + 0.4 * Math.sin(t * 0.3 + wave.phase);
+            const alpha = wave.opacity * intensity * breathe;
+
+            if (alpha <= 0.01) continue;
+
+            // Draw the aurora band as a filled shape using sine curves
+            this._ctx.beginPath();
+
+            // Number of horizontal sample points
+            const steps = Math.ceil(W / 4);
+
+            // Top edge of the band
+            const topPoints = [];
+            const bottomPoints = [];
+            for (let i = 0; i <= steps; i++) {
+                const x = (i / steps) * W;
+
+                // Compose multiple sine harmonics for organic movement
+                const y1 = Math.sin(x * wave.frequency + t * wave.speed * 1000 + wave.phase) * wave.amplitude;
+                const y2 = Math.sin(x * wave.frequency * 2.3 + t * wave.speed * 700 - wave.phase * 0.7) * (wave.amplitude * 0.4);
+                const y3 = Math.sin(x * wave.frequency * 0.5 + t * wave.speed * 400 + wave.phase * 1.3) * (wave.amplitude * 0.6);
+
+                const baseY = wave.baseY * H;
+                const yOffset = y1 + y2 + y3;
+
+                topPoints.push({ x, y: baseY + yOffset });
+                bottomPoints.push({ x, y: baseY + yOffset + wave.thickness + Math.sin(x * 0.01 + t * 0.5) * 5 });
+            }
+
+            // Build path: top edge left-to-right, bottom edge right-to-left
+            this._ctx.moveTo(topPoints[0].x, topPoints[0].y);
+            for (let i = 1; i < topPoints.length; i++) {
+                this._ctx.lineTo(topPoints[i].x, topPoints[i].y);
+            }
+            for (let i = bottomPoints.length - 1; i >= 0; i--) {
+                this._ctx.lineTo(bottomPoints[i].x, bottomPoints[i].y);
+            }
+            this._ctx.closePath();
+
+            // Create vertical gradient within the band for color variation
+            const midY = wave.baseY * H;
+            const grad = this._ctx.createLinearGradient(0, midY - wave.amplitude, 0, midY + wave.thickness + wave.amplitude);
+
+            // Purple/magenta top edge → green/cyan core → purple/magenta bottom edge
+            const coreH = wave.hue;          // Green-cyan
+            const edgeH = (wave.hue + 180) % 360; // Complementary (magenta-purple range)
+            grad.addColorStop(0,   `hsla(${edgeH}, 80%, 50%, ${alpha * 0.3})`);
+            grad.addColorStop(0.2, `hsla(${coreH}, 90%, 55%, ${alpha * 0.9})`);
+            grad.addColorStop(0.5, `hsla(${coreH}, 95%, 60%, ${alpha})`);
+            grad.addColorStop(0.8, `hsla(${coreH}, 90%, 55%, ${alpha * 0.9})`);
+            grad.addColorStop(1,   `hsla(${edgeH}, 80%, 50%, ${alpha * 0.3})`);
+
+            this._ctx.fillStyle = grad;
+            this._ctx.fill();
+
+            // Add a soft glow around the band
+            this._ctx.shadowColor = `hsla(${coreH}, 90%, 60%, ${alpha * 0.5})`;
+            this._ctx.shadowBlur = 20;
+            this._ctx.fill();
+            this._ctx.shadowBlur = 0;
+        }
+
+        this._ctx.restore();
     }
 
     // --- LIGHTNING ---
