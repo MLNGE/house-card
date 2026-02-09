@@ -119,7 +119,7 @@ class HouseCard extends HTMLElement {
         seasonal_particles: true,
         seasonal_particle_density: 1.0,
         aurora_entity: null,  // Optional: binary_sensor for NOAA aurora visibility
-        aurora_intensity: 1.0,
+        aurora_intensity: 0.75,
         badge_opacity: 0.75,
         cloud_coverage_entity: "sensor.openweathermap_cloud_coverage",
         party_mode_entity: "input_boolean.gaming_mode",
