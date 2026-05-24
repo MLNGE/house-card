@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.28.4
+ * @version 1.29.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -90,6 +90,11 @@ class HouseCard extends HTMLElement {
       this._handleVisibilityChange = this._onVisibilityChange.bind(this);
     }
   
+    static async getConfigElement() {
+      await import('./house-card-editor.js');
+      return document.createElement("house-card-editor");
+    }
+
     static getStubConfig() {
       return {
         language: "en",
@@ -2593,4 +2598,9 @@ class HouseCard extends HTMLElement {
   
   customElements.define('house-card', HouseCard);
   window.customCards = window.customCards || [];
-  window.customCards.push({ type: "house-card", name: "House Card", description: "Interactivity Enabled" });
+  window.customCards.push({ 
+    type: "house-card", 
+    name: "House Card", 
+    description: "Interactivity Enabled",
+    preview: true 
+  });

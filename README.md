@@ -83,6 +83,8 @@ If you enjoy this card and want to support its development, you can buy me a cof
 
 ## Configuration
 
+**New!** A Visual Editor is now available for the card. When adding this card via the Home Assistant UI, you can configure paths, entities, and settings using standard dropdowns and sliders. For complex fields (like `rooms`, `window_lights`, etc.), you can still use the embedded YAML editor within the settings UI!
+
 ```yaml
 type: custom:house-card
 title: "My Residence"  # Optional title (visual only)
