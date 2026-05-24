@@ -2641,7 +2641,9 @@ const EDITOR_SCHEMA = [
         ]
     },
     { name: "rooms", selector: { object: {} } },
-    { name: "window_lights", selector: { object: {} } }
+    { name: "window_lights", selector: { object: {} } },
+    { name: "nav_links", selector: { object: {} } },
+    { name: "decorations", selector: { object: {} } }
 ];
 
 class HouseCardEditor extends HTMLElement {
@@ -2690,13 +2692,19 @@ class HouseCardEditor extends HTMLElement {
                     shooting_stars: "Shooting Stars",
                     seasonal_particles: "Seasonal Particles",
                     rooms: "Rooms (YAML)",
-                    window_lights: "Window Lights (YAML)"
+                    window_lights: "Window Lights (YAML)",
+                    nav_links: "Navigation Links (YAML)",
+                    decorations: "Decorations (YAML)"
                 };
                 return labels[s.name] || s.name;
             };
 
             this._form.addEventListener("value-changed", (ev) => {
-                this._config = ev.detail.value;
+                // Merge changes with existing config to preserve any custom YAML variables (like img_*)
+                // that aren't explicitly defined in the visual editor schema.
+                const updatedConfig = { ...this._config, ...ev.detail.value };
+                this._config = updatedConfig;
+                
                 this.dispatchEvent(new CustomEvent("config-changed", {
                     detail: { config: this._config },
                     bubbles: true,
