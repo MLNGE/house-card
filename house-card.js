@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.29.2
+ * @version 1.29.5
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2640,6 +2640,15 @@ const EDITOR_SCHEMA = [
             { name: "seasonal_particles", default: true, selector: { boolean: {} } }
         ]
     },
+    {
+        type: "grid",
+        name: "",
+        schema: [
+            { name: "window_lights_debug", default: false, selector: { boolean: {} } },
+            { name: "nav_links_debug", default: false, selector: { boolean: {} } },
+            { name: "decorations_debug", default: false, selector: { boolean: {} } }
+        ]
+    },
     { name: "rooms", selector: { object: {} } },
     { name: "window_lights", selector: { object: {} } },
     { name: "nav_links", selector: { object: {} } },
@@ -2691,6 +2700,9 @@ class HouseCardEditor extends HTMLElement {
                     sky_gradient: "Sky Gradients",
                     shooting_stars: "Shooting Stars",
                     seasonal_particles: "Seasonal Particles",
+                    window_lights_debug: "Debug Window Lights",
+                    nav_links_debug: "Debug Nav Links",
+                    decorations_debug: "Debug Decorations",
                     rooms: "Rooms (YAML)",
                     window_lights: "Window Lights (YAML)",
                     nav_links: "Navigation Links (YAML)",
