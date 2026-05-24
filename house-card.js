@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.29.0
+ * @version 1.29.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -90,8 +90,7 @@ class HouseCard extends HTMLElement {
       this._handleVisibilityChange = this._onVisibilityChange.bind(this);
     }
   
-    static async getConfigElement() {
-      await import('./house-card-editor.js');
+    static getConfigElement() {
       return document.createElement("house-card-editor");
     }
 
@@ -2598,6 +2597,121 @@ class HouseCard extends HTMLElement {
   
   customElements.define('house-card', HouseCard);
   window.customCards = window.customCards || [];
+  window.customCards.push({ 
+    type: "house-card", 
+    name: "House Card", 
+    description: "Interactivity Enabled",
+    preview: true 
+  });
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// EDITOR COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const EDITOR_SCHEMA = [
+    { name: "title", selector: { text: {} } },
+    { name: "language", selector: { select: { options: ["en", "de", "fr", "nl", "es"] } } },
+    { name: "image", default: "/local/community/house-card/images/", selector: { text: {} } },
+    {
+        type: "grid",
+        name: "",
+        schema: [
+            { name: "scale", default: 1.0, selector: { number: { min: 0.1, max: 3, step: 0.1, mode: "slider" } } },
+            { name: "background_zoom", default: 1.0, selector: { number: { min: 0.1, max: 3, step: 0.1, mode: "slider" } } },
+            { name: "badge_opacity", default: 0.75, selector: { number: { min: 0, max: 1, step: 0.05, mode: "slider" } } },
+            { name: "image_x_offset", default: 0, selector: { number: { min: -1000, max: 1000, step: 1, mode: "box" } } },
+            { name: "image_y_offset", default: 0, selector: { number: { min: -1000, max: 1000, step: 1, mode: "box" } } }
+        ]
+    },
+    { name: "weather_entity", selector: { entity: { domain: "weather" } } },
+    { name: "season_entity", selector: { entity: { domain: "sensor" } } },
+    { name: "sun_entity", selector: { entity: { domain: "sun" } } },
+    { name: "aurora_entity", selector: { entity: { domain: "binary_sensor" } } },
+    {
+        type: "grid",
+        name: "",
+        schema: [
+            { name: "moon_glow", default: true, selector: { boolean: {} } },
+            { name: "sun_glow", default: true, selector: { boolean: {} } },
+            { name: "sun_rays", default: true, selector: { boolean: {} } },
+            { name: "sky_gradient", default: true, selector: { boolean: {} } },
+            { name: "shooting_stars", default: true, selector: { boolean: {} } },
+            { name: "seasonal_particles", default: true, selector: { boolean: {} } }
+        ]
+    },
+    { name: "rooms", selector: { object: {} } },
+    { name: "window_lights", selector: { object: {} } }
+];
+
+class HouseCardEditor extends HTMLElement {
+    constructor() {
+        super();
+        this.attachShadow({ mode: "open" });
+        this._config = {};
+        this._hass = null;
+    }
+
+    setConfig(config) {
+        this._config = config;
+        this.render();
+    }
+
+    set hass(hass) {
+        this._hass = hass;
+        if (this._form) {
+            this._form.hass = hass;
+        }
+    }
+
+    render() {
+        if (!this._form) {
+            this._form = document.createElement("ha-form");
+            this._form.schema = EDITOR_SCHEMA;
+            
+            this._form.computeLabel = (s) => {
+                const labels = {
+                    title: "Title (Optional)",
+                    language: "Language",
+                    image: "Background Image Path",
+                    scale: "Badge Scale",
+                    background_zoom: "Background Zoom",
+                    badge_opacity: "Badge Opacity",
+                    image_x_offset: "Background X Offset",
+                    image_y_offset: "Background Y Offset",
+                    weather_entity: "Weather Entity",
+                    season_entity: "Season Entity",
+                    sun_entity: "Sun Entity",
+                    aurora_entity: "Aurora Binary Sensor",
+                    moon_glow: "Moon Glow",
+                    sun_glow: "Sun Glow",
+                    sun_rays: "Sun Rays",
+                    sky_gradient: "Sky Gradients",
+                    shooting_stars: "Shooting Stars",
+                    seasonal_particles: "Seasonal Particles",
+                    rooms: "Rooms (YAML)",
+                    window_lights: "Window Lights (YAML)"
+                };
+                return labels[s.name] || s.name;
+            };
+
+            this._form.addEventListener("value-changed", (ev) => {
+                this._config = ev.detail.value;
+                this.dispatchEvent(new CustomEvent("config-changed", {
+                    detail: { config: this._config },
+                    bubbles: true,
+                    composed: true
+                }));
+            });
+            this.shadowRoot.appendChild(this._form);
+        }
+        this._form.data = this._config;
+        if (this._hass) this._form.hass = this._hass;
+    }
+}
+
+customElements.define("house-card-editor", HouseCardEditor);
+
   window.customCards.push({ 
     type: "house-card", 
     name: "House Card", 
