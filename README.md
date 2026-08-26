@@ -131,6 +131,15 @@ sun_elevation_entity: sensor.sun_solar_elevation  # Optional: Use if you have a 
 cloud_coverage_entity: sensor.openweathermap_cloud_coverage  # Optional (0-100%)
 party_mode_entity: input_boolean.gaming_mode  # Optional: Toggles "Gaming Ambient" light effects
 
+# --- Power Station Tile ---
+# Select any one of the P2001-PLUS entities shown in Home Assistant.
+# The card derives the rest of the matching stats automatically.
+power_station_entity: sensor.p2001_plus_battery
+power_station_x: 26
+power_station_y: 84
+power_station_width: 34
+power_station_height: 18
+
 # --- Moon Configuration ---
 # Requires the Moon integration: https://www.home-assistant.io/integrations/moon/
 moon_entity: sensor.moon_phase   # HA moon sensor (falls back to calculated if not set)

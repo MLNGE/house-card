@@ -29,6 +29,25 @@ const TRANSLATIONS = {
 
 const DEFAULT_IMAGE_PATH = "/local/house-card-images/";
 const LEGACY_IMAGE_PATH = "/local/community/house-card/images/";
+const POWER_STATION_SUFFIXES = [
+    { suffix: "ac_charge_limit", domain: "number", label: "AC Charge Limit", icon: "mdi:current-ac" },
+    { suffix: "ac_input_power", domain: "sensor", label: "AC Input", icon: "mdi:power-plug" },
+    { suffix: "ac_output_power", domain: "sensor", label: "AC Output", icon: "mdi:power-socket-eu" },
+    { suffix: "ac_output", domain: "switch", label: "AC Output", icon: "mdi:power" },
+    { suffix: "battery", domain: "sensor", label: "Battery", icon: "mdi:battery" },
+    { suffix: "bms_version", domain: "sensor", label: "BMS Version", icon: "mdi:chip" },
+    { suffix: "charging_time", domain: "sensor", label: "Charging Time", icon: "mdi:timer-sand" },
+    { suffix: "dc_car_output_power", domain: "sensor", label: "DC Car Output", icon: "mdi:car-electric" },
+    { suffix: "dc_input_power", domain: "sensor", label: "DC Input", icon: "mdi:current-dc" },
+    { suffix: "dc_output", domain: "switch", label: "DC Output", icon: "mdi:power" },
+    { suffix: "inverter_version", domain: "sensor", label: "Inverter Version", icon: "mdi:chip" },
+    { suffix: "output_frequency", domain: "select", label: "Output Frequency", icon: "mdi:sine-wave" },
+    { suffix: "output_voltage", domain: "select", label: "Output Voltage", icon: "mdi:sine-wave" },
+    { suffix: "remaining_time", domain: "sensor", label: "Remaining Time", icon: "mdi:timer-outline" },
+    { suffix: "temperature", domain: "sensor", label: "Temperature", icon: "mdi:thermometer" },
+    { suffix: "total_input_power", domain: "sensor", label: "Total Input", icon: "mdi:transmission-tower-import" },
+    { suffix: "total_output_power", domain: "sensor", label: "Total Output", icon: "mdi:transmission-tower-export" }
+];
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HOUSE CARD CLASS
@@ -86,6 +105,8 @@ class HouseCard extends HTMLElement {
       
       // Window lights update throttling
       this._lastWindowLightsData = null;
+    this._lastPowerStationData = null;
+    this._powerStationDelegated = false;
       
       // Visibility tracking
       this._isVisible = false;
@@ -130,6 +151,11 @@ class HouseCard extends HTMLElement {
         badge_opacity: 0.75,
         cloud_coverage_entity: "sensor.openweathermap_cloud_coverage",
         party_mode_entity: "input_boolean.gaming_mode",
+        power_station_entity: "sensor.p2001_plus_battery",
+        power_station_x: 26,
+        power_station_y: 84,
+        power_station_width: 34,
+        power_station_height: 18,
         rooms: [
             { name: "Living Room", entity: "sensor.salon_temp", humidity_entity: "sensor.salon_humidity", co2_entity: "sensor.salon_co2", x: 50, y: 50 },
             { name: "Power", entity: "sensor.power", x: 20, y: 80, unit: "W", decimals: 0 }
@@ -369,6 +395,7 @@ class HouseCard extends HTMLElement {
       
       this._updateBadges(roomsData);
       this._updateWindowLights();
+    this._updatePowerStationTile();
       this._updateNavLinks();
       if (!this._decorationsRendered) this._updateDecorations();
       this._handleGamingMode();
@@ -1062,6 +1089,203 @@ class HouseCard extends HTMLElement {
             });
             this._navLinksDelegated = true;
         }
+    }
+
+    _resolvePowerStationPrefix(entityId) {
+        if (!entityId) return null;
+        const objectId = entityId.split('.')[1] || entityId;
+        const suffixes = POWER_STATION_SUFFIXES.map((item) => item.suffix).sort((a, b) => b.length - a.length);
+        for (const suffix of suffixes) {
+            const suffixToken = `_${suffix}`;
+            if (objectId.endsWith(suffixToken)) {
+                return objectId.slice(0, -suffixToken.length);
+            }
+        }
+        return objectId;
+    }
+
+    _getPowerStationEntityId(prefix, suffix, domain) {
+        if (!prefix) return null;
+        return `${domain || 'sensor'}.${prefix}_${suffix}`;
+    }
+
+    _getPowerStationState(entityId) {
+        if (!entityId || !this._hass?.states) return null;
+        return this._hass.states[entityId] || null;
+    }
+
+    _formatPowerStationValue(state, fallback = '—') {
+        if (!state) return fallback;
+        const raw = state.state;
+        if (raw === undefined || raw === null || raw === 'unknown' || raw === 'unavailable') return fallback;
+        const numeric = Number(raw);
+        if (Number.isFinite(numeric)) {
+            const unit = state.attributes?.unit_of_measurement || '';
+            if (unit === '%') return `${Math.round(numeric)}%`;
+            if (unit === 'W' || unit === 'kW' || unit === 'V' || unit === 'A' || unit === 'Hz') {
+                return `${numeric.toFixed(numeric % 1 === 0 ? 0 : 1)}${unit}`;
+            }
+            return `${numeric.toFixed(numeric % 1 === 0 ? 0 : 1)}${unit ? ` ${unit}` : ''}`.trim();
+        }
+        return `${raw}${state.attributes?.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : ''}`.trim();
+    }
+
+    _buildPowerStationStats(prefix) {
+        const stats = POWER_STATION_SUFFIXES.map((item) => {
+            const entityId = this._getPowerStationEntityId(prefix, item.suffix, item.domain);
+            const state = this._getPowerStationState(entityId);
+            return {
+                ...item,
+                entityId,
+                state,
+                value: this._formatPowerStationValue(state)
+            };
+        });
+
+        const summary = {
+            battery: this._formatPowerStationValue(this._getPowerStationState(this._getPowerStationEntityId(prefix, 'battery', 'sensor'))),
+            input: this._formatPowerStationValue(this._getPowerStationState(this._getPowerStationEntityId(prefix, 'total_input_power', 'sensor'))),
+            output: this._formatPowerStationValue(this._getPowerStationState(this._getPowerStationEntityId(prefix, 'total_output_power', 'sensor'))),
+            remaining: this._formatPowerStationValue(this._getPowerStationState(this._getPowerStationEntityId(prefix, 'remaining_time', 'sensor'))),
+            temperature: this._formatPowerStationValue(this._getPowerStationState(this._getPowerStationEntityId(prefix, 'temperature', 'sensor')))
+        };
+
+        return {
+            prefix,
+            title: prefix ? prefix.replace(/_/g, '-').toUpperCase() : 'Power Station',
+            stats,
+            summary
+        };
+    }
+
+    _updatePowerStationTile() {
+        const container = this.shadowRoot.querySelector('.power-stations-layer');
+        if (!container) return;
+
+        const entityId = this._config.power_station_entity;
+        if (!entityId) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const prefix = this._resolvePowerStationPrefix(entityId);
+        const data = this._buildPowerStationStats(prefix);
+        const batteryState = this._getPowerStationState(this._getPowerStationEntityId(prefix, 'battery', 'sensor'));
+        const inputState = this._getPowerStationState(this._getPowerStationEntityId(prefix, 'total_input_power', 'sensor'));
+        const outputState = this._getPowerStationState(this._getPowerStationEntityId(prefix, 'total_output_power', 'sensor'));
+        const remainingState = this._getPowerStationState(this._getPowerStationEntityId(prefix, 'remaining_time', 'sensor'));
+        const temperatureState = this._getPowerStationState(this._getPowerStationEntityId(prefix, 'temperature', 'sensor'));
+        const hash = [
+            entityId,
+            batteryState?.state,
+            inputState?.state,
+            outputState?.state,
+            remainingState?.state,
+            temperatureState?.state,
+            this._config.power_station_x,
+            this._config.power_station_y,
+            this._config.power_station_width,
+            this._config.power_station_height
+        ].join('|');
+
+        if (this._lastPowerStationData === hash && this._powerStationDelegated) return;
+        this._lastPowerStationData = hash;
+
+        const x = this._config.power_station_x ?? 26;
+        const y = this._config.power_station_y ?? 84;
+        const width = this._config.power_station_width ?? 34;
+        const height = this._config.power_station_height ?? 18;
+
+        container.innerHTML = `
+          <div class="power-station-tile" data-entity="${entityId}" data-prefix="${prefix || ''}" style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%">
+            <div class="power-station-tile__header">
+              <ha-icon icon="mdi:power-socket"></ha-icon>
+              <div class="power-station-tile__title-wrap">
+                <div class="power-station-tile__title">${data.title}</div>
+                <div class="power-station-tile__subtitle">Power Station</div>
+              </div>
+            </div>
+            <div class="power-station-tile__stats">
+              <div class="power-station-stat"><span>Battery</span><strong>${data.summary.battery}</strong></div>
+              <div class="power-station-stat"><span>In</span><strong>${data.summary.input}</strong></div>
+              <div class="power-station-stat"><span>Out</span><strong>${data.summary.output}</strong></div>
+              <div class="power-station-stat"><span>Remain</span><strong>${data.summary.remaining}</strong></div>
+              <div class="power-station-stat"><span>Temp</span><strong>${data.summary.temperature}</strong></div>
+            </div>
+          </div>`;
+
+        if (!this._powerStationDelegated) {
+            container.addEventListener('click', (e) => {
+                const tile = e.target.closest('.power-station-tile');
+                if (!tile) return;
+                e.stopPropagation();
+                const tileEntity = tile.getAttribute('data-entity');
+                this._openPowerStationPopup(tileEntity);
+            });
+            this._powerStationDelegated = true;
+        }
+    }
+
+    _openPowerStationPopup(entityId) {
+        if (!entityId) return;
+
+        const prefix = this._resolvePowerStationPrefix(entityId);
+        const data = this._buildPowerStationStats(prefix);
+        const infoEntities = [
+            this._getPowerStationEntityId(prefix, 'battery', 'sensor'),
+            this._getPowerStationEntityId(prefix, 'total_input_power', 'sensor'),
+            this._getPowerStationEntityId(prefix, 'total_output_power', 'sensor'),
+            this._getPowerStationEntityId(prefix, 'remaining_time', 'sensor'),
+            this._getPowerStationEntityId(prefix, 'temperature', 'sensor'),
+            this._getPowerStationEntityId(prefix, 'ac_input_power', 'sensor'),
+            this._getPowerStationEntityId(prefix, 'ac_output_power', 'sensor'),
+            this._getPowerStationEntityId(prefix, 'dc_input_power', 'sensor'),
+            this._getPowerStationEntityId(prefix, 'dc_car_output_power', 'sensor'),
+            this._getPowerStationEntityId(prefix, 'ac_output', 'switch'),
+            this._getPowerStationEntityId(prefix, 'dc_output', 'switch'),
+            this._getPowerStationEntityId(prefix, 'ac_charge_limit', 'number'),
+            this._getPowerStationEntityId(prefix, 'output_voltage', 'select'),
+            this._getPowerStationEntityId(prefix, 'output_frequency', 'select')
+        ].filter((item) => item && this._hass.states[item]);
+
+        const cards = [
+            {
+                type: 'entities',
+                title: data.title,
+                show_header_toggle: false,
+                entities: infoEntities.map((entity) => ({ entity }))
+            }
+        ];
+
+        const graphEntities = [
+            this._getPowerStationEntityId(prefix, 'battery', 'sensor'),
+            this._getPowerStationEntityId(prefix, 'total_input_power', 'sensor'),
+            this._getPowerStationEntityId(prefix, 'total_output_power', 'sensor'),
+            this._getPowerStationEntityId(prefix, 'temperature', 'sensor')
+        ].filter((item) => item && this._hass.states[item]);
+
+        if (graphEntities.length > 0) {
+            cards.push({
+                type: 'history-graph',
+                title: 'Recent Trends',
+                entities: graphEntities.map((entity) => ({ entity })),
+                hours_to_show: 24
+            });
+        }
+
+        if (this._hass?.services?.browser_mod?.popup) {
+            this._hass.callService('browser_mod', 'popup', {
+                title: data.title,
+                size: 'wide',
+                content: {
+                    type: 'vertical-stack',
+                    cards
+                }
+            });
+            return;
+        }
+
+        this._fireMoreInfo(entityId);
     }
 
     // ───────────────────────────────────────────────────────────────────────────
@@ -1893,6 +2117,7 @@ class HouseCard extends HTMLElement {
           canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
           
           .badges-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+          .power-stations-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 6; pointer-events: none; }
           
           /* BADGE STYLES */
           .badge {
@@ -1934,6 +2159,83 @@ class HouseCard extends HTMLElement {
           .flip-icon .badge-content { align-items: flex-end; } /* Align text to right when flipped */
           .badge-name { font-size: 0.55rem; color: #aaa; text-transform: uppercase; margin-bottom: 2px; }
           .badge-val { font-size: 0.80rem; font-weight: 700; color: #fff; white-space: nowrap; }
+
+          /* POWER STATION TILE */
+          .power-station-tile {
+              position: absolute;
+              transform: translate(-50%, -50%);
+              pointer-events: auto;
+              cursor: pointer;
+              padding: 12px 14px;
+              border-radius: 18px;
+              background: linear-gradient(180deg, rgba(24, 28, 38, 0.94), rgba(13, 16, 23, 0.88));
+              border: 1px solid rgba(255, 255, 255, 0.14);
+              box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+              backdrop-filter: blur(10px);
+              color: #fff;
+              display: flex;
+              flex-direction: column;
+              gap: 10px;
+              transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+          }
+          .power-station-tile:hover {
+              transform: translate(-50%, -50%) scale(1.02);
+              border-color: rgba(255, 255, 255, 0.28);
+              box-shadow: 0 12px 28px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(255, 255, 255, 0.06);
+          }
+          .power-station-tile__header {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+          }
+          .power-station-tile__header ha-icon {
+              --mdc-icon-size: 24px;
+              color: #7dd3fc;
+              flex: 0 0 auto;
+              filter: drop-shadow(0 0 6px rgba(125, 211, 252, 0.35));
+          }
+          .power-station-tile__title-wrap {
+              display: flex;
+              flex-direction: column;
+              min-width: 0;
+          }
+          .power-station-tile__title {
+              font-size: 0.95rem;
+              font-weight: 800;
+              letter-spacing: 0.02em;
+              line-height: 1.1;
+          }
+          .power-station-tile__subtitle {
+              font-size: 0.68rem;
+              text-transform: uppercase;
+              letter-spacing: 0.12em;
+              color: rgba(255, 255, 255, 0.52);
+          }
+          .power-station-tile__stats {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 8px;
+          }
+          .power-station-stat {
+              display: flex;
+              flex-direction: column;
+              gap: 3px;
+              padding: 8px 9px;
+              border-radius: 12px;
+              background: rgba(255, 255, 255, 0.05);
+              border: 1px solid rgba(255, 255, 255, 0.08);
+          }
+          .power-station-stat span {
+              font-size: 0.62rem;
+              text-transform: uppercase;
+              letter-spacing: 0.08em;
+              color: rgba(255, 255, 255, 0.58);
+          }
+          .power-station-stat strong {
+              font-size: 0.84rem;
+              line-height: 1.1;
+              color: #fff;
+          }
           
           /* ENTITY MENU */
           .entity-menu {
@@ -1987,6 +2289,7 @@ class HouseCard extends HTMLElement {
           <div class="gradient-layer"></div>
           <div class="dim-layer"></div>
           <div class="window-lights-layer"></div>
+          <div class="power-stations-layer"></div>
           <div class="ambient-layer">
               <div class="ambient-light blob-1"></div>
               <div class="ambient-light blob-2"></div>
@@ -2651,6 +2954,7 @@ const EDITOR_SCHEMA = [
     { name: "season_entity", selector: { entity: { domain: "sensor" } } },
     { name: "sun_entity", selector: { entity: { domain: "sun" } } },
     { name: "aurora_entity", selector: { entity: { domain: "binary_sensor" } } },
+    { name: "power_station_entity", selector: { entity: {} } },
     {
         type: "grid",
         name: "",
@@ -2670,6 +2974,16 @@ const EDITOR_SCHEMA = [
             { name: "window_lights_debug", default: false, selector: { boolean: {} } },
             { name: "nav_links_debug", default: false, selector: { boolean: {} } },
             { name: "decorations_debug", default: false, selector: { boolean: {} } }
+        ]
+    },
+    {
+        type: "grid",
+        name: "",
+        schema: [
+            { name: "power_station_x", default: 26, selector: { number: { min: 0, max: 100, step: 1, mode: "slider" } } },
+            { name: "power_station_y", default: 84, selector: { number: { min: 0, max: 100, step: 1, mode: "slider" } } },
+            { name: "power_station_width", default: 34, selector: { number: { min: 10, max: 100, step: 1, mode: "slider" } } },
+            { name: "power_station_height", default: 18, selector: { number: { min: 8, max: 40, step: 1, mode: "slider" } } }
         ]
     },
     { name: "rooms", selector: { object: {} } },
@@ -2717,12 +3031,17 @@ class HouseCardEditor extends HTMLElement {
                     season_entity: "Season Entity",
                     sun_entity: "Sun Entity",
                     aurora_entity: "Aurora Binary Sensor",
+                    power_station_entity: "Power Station Entity",
                     moon_glow: "Moon Glow",
                     sun_glow: "Sun Glow",
                     sun_rays: "Sun Rays",
                     sky_gradient: "Sky Gradients",
                     shooting_stars: "Shooting Stars",
                     seasonal_particles: "Seasonal Particles",
+                    power_station_x: "Power Station X",
+                    power_station_y: "Power Station Y",
+                    power_station_width: "Power Station Width",
+                    power_station_height: "Power Station Height",
                     window_lights_debug: "Debug Window Lights",
                     nav_links_debug: "Debug Nav Links",
                     decorations_debug: "Debug Decorations",
