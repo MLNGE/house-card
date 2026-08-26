@@ -132,9 +132,9 @@ cloud_coverage_entity: sensor.openweathermap_cloud_coverage  # Optional (0-100%)
 party_mode_entity: input_boolean.gaming_mode  # Optional: Toggles "Gaming Ambient" light effects
 
 # --- Power Station Tile ---
-# Select any one of the P2001-PLUS entities shown in Home Assistant.
-# The card derives the rest of the matching stats automatically.
-power_station_entity: sensor.p2001_plus_battery
+# Select the power station device in the visual editor.
+# The card derives the matching stats automatically from that device.
+power_station_device_id: <device id from the selector>
 power_station_x: 26
 power_station_y: 84
 power_station_width: 34

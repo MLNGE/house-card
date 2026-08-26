@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.30.0
+ * @version 1.30.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -151,7 +151,7 @@ class HouseCard extends HTMLElement {
         badge_opacity: 0.75,
         cloud_coverage_entity: "sensor.openweathermap_cloud_coverage",
         party_mode_entity: "input_boolean.gaming_mode",
-        power_station_entity: "sensor.p2001_plus_battery",
+        power_station_device_id: null,
         power_station_x: 26,
         power_station_y: 84,
         power_station_width: 34,
@@ -1091,17 +1091,18 @@ class HouseCard extends HTMLElement {
         }
     }
 
-    _resolvePowerStationPrefix(entityId) {
-        if (!entityId) return null;
-        const objectId = entityId.split('.')[1] || entityId;
-        const suffixes = POWER_STATION_SUFFIXES.map((item) => item.suffix).sort((a, b) => b.length - a.length);
-        for (const suffix of suffixes) {
-            const suffixToken = `_${suffix}`;
-            if (objectId.endsWith(suffixToken)) {
-                return objectId.slice(0, -suffixToken.length);
-            }
-        }
-        return objectId;
+    _getPowerStationSelection() {
+        const selectedDeviceId = this._config.power_station_device_id || null;
+        const legacyEntityId = this._config.power_station_entity || null;
+        const legacyDeviceId = legacyEntityId && this._hass?.entities?.[legacyEntityId]?.device_id
+            ? this._hass.entities[legacyEntityId].device_id
+            : null;
+
+        return {
+            deviceId: selectedDeviceId || legacyDeviceId,
+            legacyEntityId,
+            legacyPrefix: legacyEntityId ? this._resolvePowerStationPrefix(legacyEntityId) : null
+        };
     }
 
     _getPowerStationEntityId(prefix, suffix, domain) {
@@ -1112,6 +1113,55 @@ class HouseCard extends HTMLElement {
     _getPowerStationState(entityId) {
         if (!entityId || !this._hass?.states) return null;
         return this._hass.states[entityId] || null;
+    }
+
+    _getPowerStationDeviceName(deviceId) {
+        if (!deviceId || !this._hass?.devices) return null;
+        const device = this._hass.devices[deviceId];
+        return device?.name_by_user || device?.name || device?.model || null;
+    }
+
+    _getPowerStationDeviceEntityIds(deviceId) {
+        if (!deviceId || !this._hass?.entities || !this._hass?.states) return [];
+        return Object.keys(this._hass.states).filter((entityId) => this._hass.entities[entityId]?.device_id === deviceId);
+    }
+
+    _findPowerStationEntityId(entityIds, suffix, domain) {
+        const suffixToken = `_${suffix}`;
+        return entityIds.find((entityId) => {
+            const [entityDomain, objectId] = entityId.split('.');
+            return (!domain || entityDomain === domain) && objectId.endsWith(suffixToken);
+        }) || null;
+    }
+
+    _resolvePowerStationEntityMap() {
+        const selection = this._getPowerStationSelection();
+        if (selection.deviceId) {
+            const entityIds = this._getPowerStationDeviceEntityIds(selection.deviceId);
+            const entities = {};
+            for (const spec of POWER_STATION_SUFFIXES) {
+                entities[spec.suffix] = this._findPowerStationEntityId(entityIds, spec.suffix, spec.domain);
+            }
+            return {
+                mode: 'device',
+                deviceId: selection.deviceId,
+                title: this._getPowerStationDeviceName(selection.deviceId) || 'Power Station',
+                entities
+            };
+        }
+
+        const legacyPrefix = selection.legacyPrefix;
+        const entities = {};
+        for (const spec of POWER_STATION_SUFFIXES) {
+            entities[spec.suffix] = this._getPowerStationEntityId(legacyPrefix, spec.suffix, spec.domain);
+        }
+
+        return {
+            mode: 'legacy',
+            deviceId: null,
+            title: legacyPrefix ? legacyPrefix.replace(/_/g, '-').toUpperCase() : 'Power Station',
+            entities
+        };
     }
 
     _formatPowerStationValue(state, fallback = '—') {
@@ -1130,9 +1180,10 @@ class HouseCard extends HTMLElement {
         return `${raw}${state.attributes?.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : ''}`.trim();
     }
 
-    _buildPowerStationStats(prefix) {
+    _buildPowerStationStats(selection = null) {
+        const resolved = selection || this._resolvePowerStationEntityMap();
         const stats = POWER_STATION_SUFFIXES.map((item) => {
-            const entityId = this._getPowerStationEntityId(prefix, item.suffix, item.domain);
+            const entityId = resolved.entities[item.suffix];
             const state = this._getPowerStationState(entityId);
             return {
                 ...item,
@@ -1142,19 +1193,16 @@ class HouseCard extends HTMLElement {
             };
         });
 
-        const summary = {
-            battery: this._formatPowerStationValue(this._getPowerStationState(this._getPowerStationEntityId(prefix, 'battery', 'sensor'))),
-            input: this._formatPowerStationValue(this._getPowerStationState(this._getPowerStationEntityId(prefix, 'total_input_power', 'sensor'))),
-            output: this._formatPowerStationValue(this._getPowerStationState(this._getPowerStationEntityId(prefix, 'total_output_power', 'sensor'))),
-            remaining: this._formatPowerStationValue(this._getPowerStationState(this._getPowerStationEntityId(prefix, 'remaining_time', 'sensor'))),
-            temperature: this._formatPowerStationValue(this._getPowerStationState(this._getPowerStationEntityId(prefix, 'temperature', 'sensor')))
-        };
-
         return {
-            prefix,
-            title: prefix ? prefix.replace(/_/g, '-').toUpperCase() : 'Power Station',
+            ...resolved,
             stats,
-            summary
+            summary: {
+                battery: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.battery)),
+                input: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.total_input_power)),
+                output: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.total_output_power)),
+                remaining: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.remaining_time)),
+                temperature: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.temperature))
+            }
         };
     }
 
@@ -1162,21 +1210,22 @@ class HouseCard extends HTMLElement {
         const container = this.shadowRoot.querySelector('.power-stations-layer');
         if (!container) return;
 
-        const entityId = this._config.power_station_entity;
+        const selection = this._getPowerStationSelection();
+        const entityId = selection.deviceId || selection.legacyEntityId;
         if (!entityId) {
             container.innerHTML = '';
             return;
         }
 
-        const prefix = this._resolvePowerStationPrefix(entityId);
-        const data = this._buildPowerStationStats(prefix);
-        const batteryState = this._getPowerStationState(this._getPowerStationEntityId(prefix, 'battery', 'sensor'));
-        const inputState = this._getPowerStationState(this._getPowerStationEntityId(prefix, 'total_input_power', 'sensor'));
-        const outputState = this._getPowerStationState(this._getPowerStationEntityId(prefix, 'total_output_power', 'sensor'));
-        const remainingState = this._getPowerStationState(this._getPowerStationEntityId(prefix, 'remaining_time', 'sensor'));
-        const temperatureState = this._getPowerStationState(this._getPowerStationEntityId(prefix, 'temperature', 'sensor'));
+        const data = this._buildPowerStationStats();
+        const batteryState = this._getPowerStationState(data.entities.battery);
+        const inputState = this._getPowerStationState(data.entities.total_input_power);
+        const outputState = this._getPowerStationState(data.entities.total_output_power);
+        const remainingState = this._getPowerStationState(data.entities.remaining_time);
+        const temperatureState = this._getPowerStationState(data.entities.temperature);
         const hash = [
             entityId,
+            data.mode,
             batteryState?.state,
             inputState?.state,
             outputState?.state,
@@ -1197,7 +1246,7 @@ class HouseCard extends HTMLElement {
         const height = this._config.power_station_height ?? 18;
 
         container.innerHTML = `
-          <div class="power-station-tile" data-entity="${entityId}" data-prefix="${prefix || ''}" style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%">
+          <div class="power-station-tile" data-entity="${entityId}" data-device-id="${data.deviceId || ''}" style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%">
             <div class="power-station-tile__header">
               <ha-icon icon="mdi:power-socket"></ha-icon>
               <div class="power-station-tile__title-wrap">
@@ -1219,56 +1268,42 @@ class HouseCard extends HTMLElement {
                 const tile = e.target.closest('.power-station-tile');
                 if (!tile) return;
                 e.stopPropagation();
-                const tileEntity = tile.getAttribute('data-entity');
-                this._openPowerStationPopup(tileEntity);
+                const tileDeviceId = tile.getAttribute('data-device-id') || null;
+                const tileEntity = tile.getAttribute('data-entity') || null;
+                this._openPowerStationPopup(tileDeviceId, tileEntity);
             });
             this._powerStationDelegated = true;
         }
     }
 
-    _openPowerStationPopup(entityId) {
-        if (!entityId) return;
+    _openPowerStationPopup(deviceId, legacyEntityId = null) {
+        const selection = deviceId
+            ? { deviceId, legacyEntityId: null, legacyPrefix: null }
+            : { deviceId: null, legacyEntityId, legacyPrefix: legacyEntityId ? this._resolvePowerStationPrefix(legacyEntityId) : null };
 
-        const prefix = this._resolvePowerStationPrefix(entityId);
-        const data = this._buildPowerStationStats(prefix);
-        const infoEntities = [
-            this._getPowerStationEntityId(prefix, 'battery', 'sensor'),
-            this._getPowerStationEntityId(prefix, 'total_input_power', 'sensor'),
-            this._getPowerStationEntityId(prefix, 'total_output_power', 'sensor'),
-            this._getPowerStationEntityId(prefix, 'remaining_time', 'sensor'),
-            this._getPowerStationEntityId(prefix, 'temperature', 'sensor'),
-            this._getPowerStationEntityId(prefix, 'ac_input_power', 'sensor'),
-            this._getPowerStationEntityId(prefix, 'ac_output_power', 'sensor'),
-            this._getPowerStationEntityId(prefix, 'dc_input_power', 'sensor'),
-            this._getPowerStationEntityId(prefix, 'dc_car_output_power', 'sensor'),
-            this._getPowerStationEntityId(prefix, 'ac_output', 'switch'),
-            this._getPowerStationEntityId(prefix, 'dc_output', 'switch'),
-            this._getPowerStationEntityId(prefix, 'ac_charge_limit', 'number'),
-            this._getPowerStationEntityId(prefix, 'output_voltage', 'select'),
-            this._getPowerStationEntityId(prefix, 'output_frequency', 'select')
-        ].filter((item) => item && this._hass.states[item]);
+        const data = this._buildPowerStationStats(selection);
+        const infoEntities = data.stats
+            .filter((item) => item.entityId && this._getPowerStationState(item.entityId))
+            .map((item) => ({ entity: item.entityId }));
 
         const cards = [
             {
                 type: 'entities',
                 title: data.title,
                 show_header_toggle: false,
-                entities: infoEntities.map((entity) => ({ entity }))
+                entities: infoEntities
             }
         ];
 
-        const graphEntities = [
-            this._getPowerStationEntityId(prefix, 'battery', 'sensor'),
-            this._getPowerStationEntityId(prefix, 'total_input_power', 'sensor'),
-            this._getPowerStationEntityId(prefix, 'total_output_power', 'sensor'),
-            this._getPowerStationEntityId(prefix, 'temperature', 'sensor')
-        ].filter((item) => item && this._hass.states[item]);
+        const graphEntities = data.stats
+            .filter((item) => ['battery', 'total_input_power', 'total_output_power', 'temperature'].includes(item.suffix) && item.entityId && this._getPowerStationState(item.entityId))
+            .map((item) => ({ entity: item.entityId }));
 
         if (graphEntities.length > 0) {
             cards.push({
                 type: 'history-graph',
                 title: 'Recent Trends',
-                entities: graphEntities.map((entity) => ({ entity })),
+                entities: graphEntities,
                 hours_to_show: 24
             });
         }
@@ -1285,7 +1320,10 @@ class HouseCard extends HTMLElement {
             return;
         }
 
-        this._fireMoreInfo(entityId);
+        const fallbackEntity = infoEntities[0]?.entity || legacyEntityId;
+        if (fallbackEntity) {
+            this._fireMoreInfo(fallbackEntity);
+        }
     }
 
     // ───────────────────────────────────────────────────────────────────────────
@@ -2954,7 +2992,7 @@ const EDITOR_SCHEMA = [
     { name: "season_entity", selector: { entity: { domain: "sensor" } } },
     { name: "sun_entity", selector: { entity: { domain: "sun" } } },
     { name: "aurora_entity", selector: { entity: { domain: "binary_sensor" } } },
-    { name: "power_station_entity", selector: { entity: {} } },
+    { name: "power_station_device_id", selector: { device: {} } },
     {
         type: "grid",
         name: "",
@@ -3031,7 +3069,7 @@ class HouseCardEditor extends HTMLElement {
                     season_entity: "Season Entity",
                     sun_entity: "Sun Entity",
                     aurora_entity: "Aurora Binary Sensor",
-                    power_station_entity: "Power Station Entity",
+                    power_station_device_id: "Power Station Device",
                     moon_glow: "Moon Glow",
                     sun_glow: "Sun Glow",
                     sun_rays: "Sun Rays",
