@@ -98,7 +98,7 @@ image_x_offset: 0     # Horizontal shift for background image in pixels (Negativ
 image_y_offset: 0     # Vertical shift for background image in pixels (Negative = UP, Positive = DOWN)
 
 # --- Image Path ---
-image_path: "/local/community/house-card/images/"
+image_path: "/local/house-card-images/"
 
 # --- Image Mapping Logic ---
 # Logic: Checks Season → Time of Day → Weather
@@ -290,7 +290,7 @@ Use debug modes to help with positioning overlays.
 
 ## Required Images
 
-Place images in your configured `image_path`. Naming convention:
+Place images in your configured `image_path`. In Home Assistant, that usually means creating a folder under `/config/www/` such as `/config/www/house-card-images/`. Keep that folder outside `/local/community/house-card/` so HACS updates do not remove it. Naming convention:
 ```
 {season}_{timeofday}.png
 {season}_{weather}_{timeofday}.png

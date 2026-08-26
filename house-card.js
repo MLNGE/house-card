@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.29.6
+ * @version 1.29.7
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -26,6 +26,9 @@
 const TRANSLATIONS = {
     en: { loading: "Loading...", home_median: "Home" }
 };
+
+const DEFAULT_IMAGE_PATH = "/local/house-card-images/";
+const LEGACY_IMAGE_PATH = "/local/community/house-card/images/";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HOUSE CARD CLASS
@@ -101,7 +104,7 @@ class HouseCard extends HTMLElement {
         background_zoom: 1.0,
         image_x_offset: 0,
         image_y_offset: 0,   
-        image: "/local/community/house-card/images/",
+        image_path: DEFAULT_IMAGE_PATH,
         weather_entity: "weather.forecast_home",
         season_entity: "sensor.season",
         sun_entity: "sun.sun",
@@ -152,13 +155,17 @@ class HouseCard extends HTMLElement {
         };
     }
   
-    setConfig(config) {
-      if (!config.rooms || !Array.isArray(config.rooms)) throw new Error("Missing 'rooms' list.");
-      this._config = config;
-      this._lang = config.language || 'en';
-      this._decorationsRendered = false; // Reset so decorations re-render on config change
-      this._render();
-    }
+        setConfig(config) {
+            if (!config.rooms || !Array.isArray(config.rooms)) throw new Error("Missing 'rooms' list.");
+            const normalizedConfig = { ...config };
+            if (!normalizedConfig.image_path && normalizedConfig.image) {
+                normalizedConfig.image_path = normalizedConfig.image;
+            }
+            this._config = normalizedConfig;
+            this._lang = config.language || 'en';
+            this._decorationsRendered = false; // Reset so decorations re-render on config change
+            this._render();
+        }
   
     set hass(hass) {
       this._hass = hass;
@@ -249,7 +256,12 @@ class HouseCard extends HTMLElement {
     // ───────────────────────────────────────────────────────────────────────────
 
     _calculateImage() {
-        const path = this._config.image_path || "/local/community/house-card/images/";
+        const configuredPath = (this._config.image_path || "").trim();
+        const pathCandidates = configuredPath
+            ? [configuredPath]
+            : this._currentImageUrl && this._currentImageUrl.startsWith(LEGACY_IMAGE_PATH)
+                ? [LEGACY_IMAGE_PATH, DEFAULT_IMAGE_PATH]
+                : [DEFAULT_IMAGE_PATH, LEGACY_IMAGE_PATH];
         const sunState = this._hass.states[this._config.sun_entity || 'sun.sun']?.state || 'above_horizon';
         const timeOfDay = this._config.test_time_of_day || (sunState === 'below_horizon' ? 'night' : 'day');
 
@@ -257,7 +269,7 @@ class HouseCard extends HTMLElement {
         const month = now.getMonth() + 1;
         const day = now.getDate();
         if ((month === 12 && day >= 14) || (month === 1 && day <= 14)) {
-            return `${path}winter_xmas_${timeOfDay}.png`;
+            return pathCandidates.map((path) => `${path}winter_xmas_${timeOfDay}.png`);
         }
 
         let season = this._config.test_season_state || this._hass.states[this._config.season_entity]?.state || 'summer';
@@ -277,10 +289,10 @@ class HouseCard extends HTMLElement {
         if (weatherSuffix) {
             const configKey = `img_${season}_${timeOfDay}_${weatherSuffix}`;
             if (this._config[configKey] === true) {
-                return `${path}${season}_${weatherSuffix}_${timeOfDay}.png`;
+                return pathCandidates.map((path) => `${path}${season}_${weatherSuffix}_${timeOfDay}.png`);
             }
         }
-        return `${path}${season}_${timeOfDay}.png`;
+        return pathCandidates.map((path) => `${path}${season}_${timeOfDay}.png`);
     }
 
     // ───────────────────────────────────────────────────────────────────────────
@@ -290,33 +302,44 @@ class HouseCard extends HTMLElement {
     _updateData() {
       if (!this._hass || !this.shadowRoot.querySelector('.card')) return;
 
-      const newImage = this._calculateImage();
-      
+      const newImageCandidates = this._calculateImage();
+      const newImage = newImageCandidates[0];
+
       if (this._currentImageUrl !== newImage || 
           this._lastXOffset !== this._config.image_x_offset ||
           this._lastYOffset !== this._config.image_y_offset ||
           this._lastScale !== this._config.scale ||
           this._lastBackgroundZoom !== this._config.background_zoom) {
-          
+
           this._currentImageUrl = newImage;
           this._lastXOffset = this._config.image_x_offset;
           this._lastYOffset = this._config.image_y_offset;
           this._lastScale = this._config.scale;
           this._lastBackgroundZoom = this._config.background_zoom;
-          
+
           const bgEl = this.shadowRoot.querySelector('.bg-image');
           if (bgEl) {
-              const img = new Image();
-              img.onload = () => { 
-                  bgEl.style.backgroundImage = `url('${newImage}')`;
-                  const xOffset = this._config.image_x_offset || 0;
-                  const yOffset = this._config.image_y_offset || 0;
-                  const bgZoom = this._config.background_zoom || 1.0;
-                  bgEl.style.setProperty('--image-x-offset', `${xOffset}px`);
-                  bgEl.style.setProperty('--image-y-offset', `${yOffset}px`);
-                  bgEl.style.setProperty('--background-zoom', bgZoom);
+              const loadImage = (index) => {
+                  const candidate = newImageCandidates[index];
+                  const img = new Image();
+                  img.onload = () => {
+                      this._currentImageUrl = candidate;
+                      bgEl.style.backgroundImage = `url('${candidate}')`;
+                      const xOffset = this._config.image_x_offset || 0;
+                      const yOffset = this._config.image_y_offset || 0;
+                      const bgZoom = this._config.background_zoom || 1.0;
+                      bgEl.style.setProperty('--image-x-offset', `${xOffset}px`);
+                      bgEl.style.setProperty('--image-y-offset', `${yOffset}px`);
+                      bgEl.style.setProperty('--background-zoom', bgZoom);
+                  };
+                  img.onerror = () => {
+                      if (index + 1 < newImageCandidates.length) {
+                          loadImage(index + 1);
+                      }
+                  };
+                  img.src = candidate;
               };
-              img.src = newImage;
+              loadImage(0);
           }
 
           const card = this.shadowRoot.querySelector('.card');
@@ -2612,7 +2635,7 @@ class HouseCard extends HTMLElement {
 const EDITOR_SCHEMA = [
     { name: "title", selector: { text: {} } },
     { name: "language", selector: { select: { options: ["en", "de", "fr", "nl", "es"] } } },
-    { name: "image", default: "/local/community/house-card/images/", selector: { text: {} } },
+    { name: "image_path", default: DEFAULT_IMAGE_PATH, selector: { text: {} } },
     {
         type: "grid",
         name: "",
@@ -2684,7 +2707,7 @@ class HouseCardEditor extends HTMLElement {
                 const labels = {
                     title: "Title (Optional)",
                     language: "Language",
-                    image: "Background Image Path",
+                    image_path: "Background Image Path",
                     scale: "Badge Scale",
                     background_zoom: "Background Zoom",
                     badge_opacity: "Badge Opacity",
