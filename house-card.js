@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.29.7
+ * @version 1.30.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
