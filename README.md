@@ -134,7 +134,7 @@ party_mode_entity: input_boolean.gaming_mode  # Optional: Toggles "Gaming Ambien
 # --- Power Station Tile ---
 # Select the power station device in the visual editor.
 # The card derives the matching stats automatically from that device.
-power_station_device_id: <device id from the selector>
+# power_station_device_id: device id from the selector
 power_station_x: 26
 power_station_y: 84
 power_station_width: 34

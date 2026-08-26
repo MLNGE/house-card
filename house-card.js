@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.30.1
+ * @version 1.30.2
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -184,6 +184,12 @@ class HouseCard extends HTMLElement {
         setConfig(config) {
             if (!config.rooms || !Array.isArray(config.rooms)) throw new Error("Missing 'rooms' list.");
             const normalizedConfig = { ...config };
+            if (normalizedConfig.power_station_device_id && typeof normalizedConfig.power_station_device_id === 'object') {
+                normalizedConfig.power_station_device_id = normalizedConfig.power_station_device_id.device_id || normalizedConfig.power_station_device_id.id || null;
+            }
+            if (typeof normalizedConfig.power_station_device_id === 'string' && normalizedConfig.power_station_device_id.trim().startsWith('<')) {
+                normalizedConfig.power_station_device_id = null;
+            }
             if (!normalizedConfig.image_path && normalizedConfig.image) {
                 normalizedConfig.image_path = normalizedConfig.image;
             }
