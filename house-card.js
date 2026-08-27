@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.31.1
+ * @version 1.31.2s
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -154,8 +154,8 @@ class HouseCard extends HTMLElement {
         power_station_device_id: null,
         power_station_x: 26,
         power_station_y: 84,
-        power_station_width: 34,
-        power_station_height: 18,
+        power_station_width: 22,
+        power_station_height: 11,
         rooms: [
             { name: "Living Room", entity: "sensor.salon_temp", humidity_entity: "sensor.salon_humidity", co2_entity: "sensor.salon_co2", x: 50, y: 50 },
             { name: "Power", entity: "sensor.power", x: 20, y: 80, unit: "W", decimals: 0 }
@@ -1266,8 +1266,8 @@ class HouseCard extends HTMLElement {
 
         const x = this._config.power_station_x ?? 26;
         const y = this._config.power_station_y ?? 84;
-        const width = this._config.power_station_width ?? 34;
-        const height = this._config.power_station_height ?? 18;
+        const width = this._config.power_station_width ?? 22;
+        const height = this._config.power_station_height ?? 11;
 
         const existingTile = container.querySelector('.power-station-tile');
         if (existingTile) {
@@ -1286,11 +1286,11 @@ class HouseCard extends HTMLElement {
                                     <ha-icon icon="mdi:power-socket-off"></ha-icon>
                                     <div class="power-station-tile__title-wrap">
                                         <div class="power-station-tile__title">${data.title}</div>
-                                        <div class="power-station-tile__subtitle">No data available</div>
+                                        <div class="power-station-tile__subtitle">No data</div>
                                     </div>
                                 </div>
                                 <div class="power-station-tile__empty-state">
-                                    Select a device with available power-station entities or wait until the integration reports state.
+                                    Select a device with available entities.
                                 </div>
                             </div>`;
 
@@ -1317,12 +1317,16 @@ class HouseCard extends HTMLElement {
                 <div class="power-station-tile__subtitle">Power Station</div>
               </div>
             </div>
-            <div class="power-station-tile__stats">
-              <div class="power-station-stat"><span>Battery</span><strong>${data.summary.battery}</strong></div>
-              <div class="power-station-stat"><span>In</span><strong>${data.summary.input}</strong></div>
-              <div class="power-station-stat"><span>Out</span><strong>${data.summary.output}</strong></div>
-              <div class="power-station-stat"><span>Remain</span><strong>${data.summary.remaining}</strong></div>
-              <div class="power-station-stat"><span>Temp</span><strong>${data.summary.temperature}</strong></div>
+                        <div class="power-station-tile__summary">
+                            <span>Bat ${data.summary.battery}</span>
+                            <span class="power-station-tile__divider">|</span>
+                            <span>In ${data.summary.input}</span>
+                            <span class="power-station-tile__divider">|</span>
+                            <span>Out ${data.summary.output}</span>
+                        </div>
+                        <div class="power-station-tile__meta">
+                            <span>Remain ${data.summary.remaining}</span>
+                            <span>Temp ${data.summary.temperature}</span>
             </div>
           </div>`;
 
@@ -2274,8 +2278,8 @@ class HouseCard extends HTMLElement {
               transform: translate(-50%, -50%);
               pointer-events: auto;
               cursor: pointer;
-              padding: 10px 12px;
-              border-radius: 16px;
+              padding: 6px 10px;
+              border-radius: 14px;
               background: rgba(20, 20, 25, var(--badge-opacity, 0.82));
               border: 1px solid rgba(255,255,255, calc(var(--badge-opacity, 0.82) * 0.2));
               box-shadow: 0 4px 8px rgba(0,0,0, calc(var(--badge-opacity, 0.82) * 0.53));
@@ -2283,7 +2287,7 @@ class HouseCard extends HTMLElement {
               color: #fff;
               display: flex;
               flex-direction: column;
-              gap: 8px;
+              gap: 4px;
               transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
           }
           .power-station-tile:hover {
@@ -2294,10 +2298,10 @@ class HouseCard extends HTMLElement {
           .power-station-tile__header {
               display: flex;
               align-items: center;
-              gap: 8px;
+              gap: 6px;
           }
           .power-station-tile__header ha-icon {
-              --mdc-icon-size: 20px;
+              --mdc-icon-size: 16px;
               color: #64B5F6;
               flex: 0 0 auto;
               filter: drop-shadow(0 0 3px rgba(100, 181, 246, 0.45));
@@ -2308,54 +2312,42 @@ class HouseCard extends HTMLElement {
               min-width: 0;
           }
           .power-station-tile__title {
-              font-size: 0.82rem;
+              font-size: 0.7rem;
               font-weight: 800;
-              letter-spacing: 0.04em;
+              letter-spacing: 0.03em;
               line-height: 1.1;
               text-transform: uppercase;
           }
           .power-station-tile__subtitle {
-              font-size: 0.62rem;
+              font-size: 0.54rem;
               text-transform: uppercase;
-              letter-spacing: 0.1em;
+              letter-spacing: 0.08em;
               color: rgba(255, 255, 255, 0.52);
           }
-          .power-station-tile__stats {
-              display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 6px;
+          .power-station-tile__summary,
+          .power-station-tile__meta {
+              display: flex;
+              align-items: center;
+              flex-wrap: wrap;
+              gap: 3px 5px;
+              font-size: 0.6rem;
+              line-height: 1.1;
+              color: rgba(255, 255, 255, 0.9);
           }
           .power-station-tile--empty {
               justify-content: space-between;
           }
           .power-station-tile__empty-state {
-              font-size: 0.72rem;
-              line-height: 1.4;
+              font-size: 0.58rem;
+              line-height: 1.2;
               color: rgba(255, 255, 255, 0.72);
-              padding: 8px 10px;
-              border-radius: 10px;
+              padding: 0;
+              border-radius: 0;
               background: rgba(255, 255, 255, 0.05);
-              border: 1px dashed rgba(255, 255, 255, 0.16);
+              border: none;
           }
-          .power-station-stat {
-              display: flex;
-              flex-direction: column;
-              gap: 3px;
-              padding: 7px 8px;
-              border-radius: 10px;
-              background: rgba(255, 255, 255, 0.05);
-              border: 1px solid rgba(255, 255, 255, 0.08);
-          }
-          .power-station-stat span {
-              font-size: 0.62rem;
-              text-transform: uppercase;
-              letter-spacing: 0.08em;
-              color: rgba(255, 255, 255, 0.58);
-          }
-          .power-station-stat strong {
-              font-size: 0.84rem;
-              line-height: 1.1;
-              color: #fff;
+          .power-station-tile__divider {
+              opacity: 0.5;
           }
           
           /* ENTITY MENU */
