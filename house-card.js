@@ -15,8 +15,9 @@
  * * FIX: Moon phase now renders actual illumination percentage.
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
- * 
- * @version 1.31.2s
+ * * FIX: Inline slider for power station number entities (ac_charge_limit) directly on the tile so it moves the device.
+ *
+ * @version 1.31.5
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1308,6 +1309,19 @@ class HouseCard extends HTMLElement {
                         return;
                 }
 
+        const sliderSpec = POWER_STATION_SUFFIXES.find(
+            (item) => item.domain === 'number'
+        );
+        const sliderEntityId = sliderSpec ? data.entities[sliderSpec.suffix] : null;
+        const sliderState = sliderEntityId ? this._getPowerStationState(sliderEntityId) : null;
+        const sliderMode = sliderState?.attributes?.mode;
+        const sliderMin = Number(sliderState?.attributes?.min ?? 0);
+        const sliderMax = Number(sliderState?.attributes?.max ?? 100);
+        const sliderStep = Number(sliderState?.attributes?.step ?? 1);
+        const sliderValue = Number(sliderState?.state ?? sliderMin);
+        const sliderUnit = sliderState?.attributes?.unit_of_measurement || '';
+        const showSlider = !!sliderState && sliderMode === 'slider' && Number.isFinite(sliderValue);
+
         container.innerHTML = `
           <div class="power-station-tile" data-entity="${entityId}" data-device-id="${data.deviceId || ''}" style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%">
             <div class="power-station-tile__header">
@@ -1328,16 +1342,48 @@ class HouseCard extends HTMLElement {
                             <span>Remain ${data.summary.remaining}</span>
                             <span>Temp ${data.summary.temperature}</span>
             </div>
+                        ${showSlider ? `
+                        <div class="power-station-tile__slider" data-entity="${sliderEntityId}">
+                            <div class="power-station-tile__slider-label">
+                                <span>${sliderSpec.label}</span>
+                                <span class="power-station-tile__slider-value">${Math.round(sliderValue)}${sliderUnit}</span>
+                            </div>
+                            <input type="range"
+                                   class="power-station-tile__slider-input"
+                                   min="${sliderMin}"
+                                   max="${sliderMax}"
+                                   step="${sliderStep}"
+                                   value="${sliderValue}"
+                                   data-unit="${sliderUnit}"
+                                   aria-label="${sliderSpec.label}">
+                        </div>` : ''}
           </div>`;
 
         if (!this._powerStationDelegated) {
             container.addEventListener('click', (e) => {
                 const tile = e.target.closest('.power-station-tile');
                 if (!tile) return;
+                if (e.target.closest('.power-station-tile__slider')) return;
                 e.stopPropagation();
                 const tileDeviceId = tile.getAttribute('data-device-id') || null;
                 const tileEntity = tile.getAttribute('data-entity') || null;
                 this._openPowerStationPopup(tileDeviceId, tileEntity);
+            });
+            container.addEventListener('input', (e) => {
+                const input = e.target.closest('.power-station-tile__slider-input');
+                if (!input) return;
+                e.stopPropagation();
+                const wrap = input.closest('.power-station-tile__slider');
+                const targetEntityId = wrap?.getAttribute('data-entity');
+                if (!targetEntityId || !this._hass) return;
+                const newValue = Number(input.value);
+                const valueLabel = wrap.querySelector('.power-station-tile__slider-value');
+                const unit = input.getAttribute('data-unit') || '';
+                if (valueLabel) valueLabel.textContent = `${Math.round(newValue)}${unit}`;
+                this._hass.callService('number', 'set_value', {
+                    entity_id: targetEntityId,
+                    value: newValue
+                });
             });
             this._powerStationDelegated = true;
         }
@@ -2348,6 +2394,34 @@ class HouseCard extends HTMLElement {
           }
           .power-station-tile__divider {
               opacity: 0.5;
+          }
+          .power-station-tile__slider {
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+              margin-top: 2px;
+              cursor: default;
+          }
+          .power-station-tile__slider-label {
+              display: flex;
+              justify-content: space-between;
+              align-items: baseline;
+              font-size: 0.54rem;
+              text-transform: uppercase;
+              letter-spacing: 0.06em;
+              color: rgba(255, 255, 255, 0.78);
+          }
+          .power-station-tile__slider-value {
+              font-weight: 700;
+              color: #64B5F6;
+              filter: drop-shadow(0 0 3px rgba(100, 181, 246, 0.45));
+          }
+          .power-station-tile__slider-input {
+              width: 100%;
+              height: 14px;
+              margin: 0;
+              accent-color: #64B5F6;
+              cursor: pointer;
           }
           
           /* ENTITY MENU */
