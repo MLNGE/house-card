@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.30.3
+ * @version 1.30.4
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -182,8 +182,9 @@ class HouseCard extends HTMLElement {
     }
   
         setConfig(config) {
-            const normalizedConfig = { ...this.constructor.getStubConfig(), ...config };
-            normalizedConfig.rooms = Array.isArray(config.rooms) ? config.rooms : [];
+            const incomingConfig = config || {};
+            const normalizedConfig = { ...this.constructor.getStubConfig(), ...incomingConfig };
+            normalizedConfig.rooms = Array.isArray(incomingConfig.rooms) ? incomingConfig.rooms : [];
             if (normalizedConfig.power_station_device_id && typeof normalizedConfig.power_station_device_id === 'object') {
                 normalizedConfig.power_station_device_id = normalizedConfig.power_station_device_id.device_id || normalizedConfig.power_station_device_id.id || null;
             }
@@ -1209,6 +1210,8 @@ class HouseCard extends HTMLElement {
                 remaining: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.remaining_time)),
                 temperature: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.temperature))
             }
+            ,
+            hasData: stats.some((item) => item.state && item.state.state !== 'unknown' && item.state.state !== 'unavailable')
         };
     }
 
@@ -1250,6 +1253,35 @@ class HouseCard extends HTMLElement {
         const y = this._config.power_station_y ?? 84;
         const width = this._config.power_station_width ?? 34;
         const height = this._config.power_station_height ?? 18;
+
+                if (!data.hasData) {
+                        container.innerHTML = `
+                            <div class="power-station-tile power-station-tile--empty" data-entity="${entityId}" data-device-id="${data.deviceId || ''}" style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%">
+                                <div class="power-station-tile__header">
+                                    <ha-icon icon="mdi:power-socket-off"></ha-icon>
+                                    <div class="power-station-tile__title-wrap">
+                                        <div class="power-station-tile__title">${data.title}</div>
+                                        <div class="power-station-tile__subtitle">No data available</div>
+                                    </div>
+                                </div>
+                                <div class="power-station-tile__empty-state">
+                                    Select a device with available power-station entities or wait until the integration reports state.
+                                </div>
+                            </div>`;
+
+                        if (!this._powerStationDelegated) {
+                                container.addEventListener('click', (e) => {
+                                        const tile = e.target.closest('.power-station-tile');
+                                        if (!tile) return;
+                                        e.stopPropagation();
+                                        const tileDeviceId = tile.getAttribute('data-device-id') || null;
+                                        const tileEntity = tile.getAttribute('data-entity') || null;
+                                        this._openPowerStationPopup(tileDeviceId, tileEntity);
+                                });
+                                this._powerStationDelegated = true;
+                        }
+                        return;
+                }
 
         container.innerHTML = `
           <div class="power-station-tile" data-entity="${entityId}" data-device-id="${data.deviceId || ''}" style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%">
@@ -1311,6 +1343,13 @@ class HouseCard extends HTMLElement {
                 title: 'Recent Trends',
                 entities: graphEntities,
                 hours_to_show: 24
+            });
+        }
+
+        if (!data.hasData) {
+            cards.unshift({
+                type: 'markdown',
+                content: `### ${data.title}\n\nNo available power station entities were found for the selected device.`
             });
         }
 
@@ -2260,6 +2299,18 @@ class HouseCard extends HTMLElement {
               grid-template-columns: repeat(2, minmax(0, 1fr));
               gap: 8px;
           }
+          .power-station-tile--empty {
+              justify-content: space-between;
+          }
+          .power-station-tile__empty-state {
+              font-size: 0.78rem;
+              line-height: 1.4;
+              color: rgba(255, 255, 255, 0.72);
+              padding: 10px 12px;
+              border-radius: 12px;
+              background: rgba(255, 255, 255, 0.05);
+              border: 1px dashed rgba(255, 255, 255, 0.16);
+          }
           .power-station-stat {
               display: flex;
               flex-direction: column;
@@ -2998,10 +3049,20 @@ const EDITOR_SCHEMA = [
     { name: "season_entity", selector: { entity: { domain: "sensor" } } },
     { name: "sun_entity", selector: { entity: { domain: "sun" } } },
     { name: "aurora_entity", selector: { entity: { domain: "binary_sensor" } } },
-    { name: "power_station_device_id", selector: { device: {} } },
     {
         type: "grid",
-        name: "",
+        name: "Power Station",
+        schema: [
+            { name: "power_station_device_id", selector: { device: {} } },
+            { name: "power_station_x", default: 26, selector: { number: { min: 0, max: 100, step: 1, mode: "slider" } } },
+            { name: "power_station_y", default: 84, selector: { number: { min: 0, max: 100, step: 1, mode: "slider" } } },
+            { name: "power_station_width", default: 34, selector: { number: { min: 10, max: 100, step: 1, mode: "slider" } } },
+            { name: "power_station_height", default: 18, selector: { number: { min: 8, max: 40, step: 1, mode: "slider" } } }
+        ]
+    },
+    {
+        type: "grid",
+        name: "Visual Effects",
         schema: [
             { name: "moon_glow", default: true, selector: { boolean: {} } },
             { name: "sun_glow", default: true, selector: { boolean: {} } },
@@ -3013,21 +3074,11 @@ const EDITOR_SCHEMA = [
     },
     {
         type: "grid",
-        name: "",
+        name: "Debug",
         schema: [
             { name: "window_lights_debug", default: false, selector: { boolean: {} } },
             { name: "nav_links_debug", default: false, selector: { boolean: {} } },
             { name: "decorations_debug", default: false, selector: { boolean: {} } }
-        ]
-    },
-    {
-        type: "grid",
-        name: "",
-        schema: [
-            { name: "power_station_x", default: 26, selector: { number: { min: 0, max: 100, step: 1, mode: "slider" } } },
-            { name: "power_station_y", default: 84, selector: { number: { min: 0, max: 100, step: 1, mode: "slider" } } },
-            { name: "power_station_width", default: 34, selector: { number: { min: 10, max: 100, step: 1, mode: "slider" } } },
-            { name: "power_station_height", default: 18, selector: { number: { min: 8, max: 40, step: 1, mode: "slider" } } }
         ]
     },
     { name: "rooms", selector: { object: {} } },
@@ -3045,7 +3096,7 @@ class HouseCardEditor extends HTMLElement {
     }
 
     setConfig(config) {
-        this._config = config;
+        this._config = config || {};
         this.render();
     }
 
