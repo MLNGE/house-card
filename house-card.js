@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  * 
- * @version 1.30.6
+ * @version 1.31.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -198,6 +198,7 @@ class HouseCard extends HTMLElement {
             this._lang = incomingConfig.language || 'en';
             this._decorationsRendered = false; // Reset so decorations re-render on config change
             this._render();
+            if (this._hass) this._updateData();
         }
   
     set hass(hass) {
@@ -1224,8 +1225,7 @@ class HouseCard extends HTMLElement {
                 output: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.total_output_power)),
                 remaining: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.remaining_time)),
                 temperature: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.temperature))
-            }
-            ,
+            },
             hasData: stats.some((item) => item.state && item.state.state !== 'unknown' && item.state.state !== 'unavailable')
         };
     }
@@ -2264,33 +2264,33 @@ class HouseCard extends HTMLElement {
               transform: translate(-50%, -50%);
               pointer-events: auto;
               cursor: pointer;
-              padding: 12px 14px;
-              border-radius: 18px;
-              background: linear-gradient(180deg, rgba(24, 28, 38, 0.94), rgba(13, 16, 23, 0.88));
-              border: 1px solid rgba(255, 255, 255, 0.14);
-              box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-              backdrop-filter: blur(10px);
+              padding: 10px 12px;
+              border-radius: 16px;
+              background: rgba(20, 20, 25, var(--badge-opacity, 0.82));
+              border: 1px solid rgba(255,255,255, calc(var(--badge-opacity, 0.82) * 0.2));
+              box-shadow: 0 4px 8px rgba(0,0,0, calc(var(--badge-opacity, 0.82) * 0.53));
+              backdrop-filter: blur(8px);
               color: #fff;
               display: flex;
               flex-direction: column;
-              gap: 10px;
+              gap: 8px;
               transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
           }
           .power-station-tile:hover {
               transform: translate(-50%, -50%) scale(1.02);
-              border-color: rgba(255, 255, 255, 0.28);
-              box-shadow: 0 12px 28px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(255, 255, 255, 0.06);
+              border-color: rgba(255,255,255, calc(var(--badge-opacity, 0.82) * 0.35));
+              box-shadow: 0 6px 12px rgba(0,0,0, calc(var(--badge-opacity, 0.82) * 0.6));
           }
           .power-station-tile__header {
               display: flex;
               align-items: center;
-              gap: 10px;
+              gap: 8px;
           }
           .power-station-tile__header ha-icon {
-              --mdc-icon-size: 24px;
-              color: #7dd3fc;
+              --mdc-icon-size: 20px;
+              color: #64B5F6;
               flex: 0 0 auto;
-              filter: drop-shadow(0 0 6px rgba(125, 211, 252, 0.35));
+              filter: drop-shadow(0 0 3px rgba(100, 181, 246, 0.45));
           }
           .power-station-tile__title-wrap {
               display: flex;
@@ -2298,31 +2298,32 @@ class HouseCard extends HTMLElement {
               min-width: 0;
           }
           .power-station-tile__title {
-              font-size: 0.95rem;
+              font-size: 0.82rem;
               font-weight: 800;
-              letter-spacing: 0.02em;
+              letter-spacing: 0.04em;
               line-height: 1.1;
+              text-transform: uppercase;
           }
           .power-station-tile__subtitle {
-              font-size: 0.68rem;
+              font-size: 0.62rem;
               text-transform: uppercase;
-              letter-spacing: 0.12em;
+              letter-spacing: 0.1em;
               color: rgba(255, 255, 255, 0.52);
           }
           .power-station-tile__stats {
               display: grid;
               grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 8px;
+              gap: 6px;
           }
           .power-station-tile--empty {
               justify-content: space-between;
           }
           .power-station-tile__empty-state {
-              font-size: 0.78rem;
+              font-size: 0.72rem;
               line-height: 1.4;
               color: rgba(255, 255, 255, 0.72);
-              padding: 10px 12px;
-              border-radius: 12px;
+              padding: 8px 10px;
+              border-radius: 10px;
               background: rgba(255, 255, 255, 0.05);
               border: 1px dashed rgba(255, 255, 255, 0.16);
           }
@@ -2330,8 +2331,8 @@ class HouseCard extends HTMLElement {
               display: flex;
               flex-direction: column;
               gap: 3px;
-              padding: 8px 9px;
-              border-radius: 12px;
+              padding: 7px 8px;
+              border-radius: 10px;
               background: rgba(255, 255, 255, 0.05);
               border: 1px solid rgba(255, 255, 255, 0.08);
           }
