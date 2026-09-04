@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.31.6
+ * @version 1.31.7
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -106,6 +106,7 @@ class HouseCard extends HTMLElement {
       // Window lights update throttling
       this._lastWindowLightsData = null;
     this._lastPowerStationData = null;
+    this._lastPowerStationPos = null;
     this._powerStationDelegated = false;
       
       // Visibility tracking
@@ -1254,30 +1255,37 @@ class HouseCard extends HTMLElement {
             inputState?.state,
             outputState?.state,
             remainingState?.state,
-            temperatureState?.state,
+            temperatureState?.state
+        ].join('|');
+
+        const posHash = [
             this._config.power_station_x,
             this._config.power_station_y,
             this._config.power_station_width,
             this._config.power_station_height
         ].join('|');
 
-        if (this._lastPowerStationData === hash && this._powerStationDelegated) return;
-        this._lastPowerStationData = hash;
-
         const x = this._config.power_station_x ?? 26;
         const y = this._config.power_station_y ?? 84;
         const width = this._config.power_station_width ?? 34;
         const height = this._config.power_station_height ?? 18;
 
-        const existingTile = container.querySelector('.power-station-tile');
-        if (existingTile) {
-            existingTile.style.top = `${y}%`;
-            existingTile.style.left = `${x}%`;
-            existingTile.style.width = `${width}%`;
-            existingTile.style.height = `${height}%`;
-            existingTile.setAttribute('data-device-id', data.deviceId || '');
-            existingTile.setAttribute('data-entity', entityId);
+        // Position-only change: update styles in-place without re-rendering
+        if (this._lastPowerStationData === hash && this._powerStationDelegated) {
+            if (this._lastPowerStationPos !== posHash) {
+                this._lastPowerStationPos = posHash;
+                const existingTile = container.querySelector('.power-station-tile');
+                if (existingTile) {
+                    existingTile.style.top = `${y}%`;
+                    existingTile.style.left = `${x}%`;
+                    existingTile.style.width = `${width}%`;
+                    existingTile.style.height = `${height}%`;
+                }
+            }
+            return;
         }
+        this._lastPowerStationData = hash;
+        this._lastPowerStationPos = posHash;
 
                 if (!data.hasData) {
                         container.innerHTML = `
