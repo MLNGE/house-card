@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.32.9
+ * @version 1.33.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -593,10 +593,45 @@ class HouseCard extends HTMLElement {
     // INTERACTIONS & EVENTS
     // ───────────────────────────────────────────────────────────────────────────
     
+    _ensureMenuStyles() {
+        if (document.getElementById('house-card-menu-styles')) return;
+        const s = document.createElement('style');
+        s.id = 'house-card-menu-styles';
+        s.textContent = `
+            .entity-menu {
+                position: fixed; z-index: 99999;
+                background: rgba(30,30,30,0.98);
+                border: 1px solid rgba(255,255,255,0.15);
+                border-radius: 8px; padding: 4px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+                backdrop-filter: blur(10px);
+                min-width: 150px;
+                animation: hcMenuFadeIn 0.15s ease-out;
+                pointer-events: auto;
+            }
+            @keyframes hcMenuFadeIn {
+                from { opacity: 0; transform: translateY(-5px); }
+                to   { opacity: 1; transform: translateY(0); }
+            }
+            .entity-menu-item {
+                display: flex; align-items: center; gap: 8px;
+                padding: 10px 12px; cursor: pointer; border-radius: 4px;
+                transition: background 0.2s; color: #fff; font-size: 0.9rem;
+                pointer-events: auto; user-select: none;
+                -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+            }
+            .entity-menu-item:hover { background: rgba(255,255,255,0.1); }
+            .entity-menu-separator { height: 1px; background: rgba(255,255,255,0.12); margin: 4px 8px; }
+            .entity-menu-item--reload ha-icon { color: #EF9A9A; }
+            .entity-menu-item ha-icon { --mdc-icon-size: 20px; color: #64B5F6; }
+        `;
+        document.head.appendChild(s);
+    }
+
     _showEntityMenu(badge, room, event) {
-        // Remove any existing menu
-        const existingMenu = this.shadowRoot.querySelector('.entity-menu');
+        const existingMenu = document.querySelector('.entity-menu');
         if (existingMenu) existingMenu.remove();
+        this._ensureMenuStyles();
         
         // Collect available entities with their current values
         const entities = [];
@@ -632,11 +667,10 @@ class HouseCard extends HTMLElement {
             </div>
         `).join('');
         
-        // Position menu near the badge using fixed coords to escape overflow:hidden on .card
         const rect = badge.getBoundingClientRect();
-        menu.style.top  = `${rect.bottom}px`;
-        menu.style.left = `${rect.left}px`;
-        this.shadowRoot.querySelector('.card').appendChild(menu);
+        menu.style.top  = `${rect.bottom + window.scrollY}px`;
+        menu.style.left = `${rect.left + window.scrollX}px`;
+        document.body.appendChild(menu);
         
         // Handle menu item selection
         const selectMenuItem = (item) => {
@@ -694,7 +728,7 @@ class HouseCard extends HTMLElement {
                 observer.disconnect();
             }
         });
-        observer.observe(this.shadowRoot.querySelector('.card'), { childList: true });
+        observer.observe(document.body, { childList: true });
     }
     
     _handleTapAction(action, room) {
@@ -1389,8 +1423,9 @@ class HouseCard extends HTMLElement {
     }
 
     _showPowerStationMenu(tile, deviceId, legacyEntityId) {
-        const existingMenu = this.shadowRoot.querySelector('.entity-menu');
+        const existingMenu = document.querySelector('.entity-menu');
         if (existingMenu) existingMenu.remove();
+        this._ensureMenuStyles();
 
         const data = this._buildPowerStationStats();
 
@@ -1432,11 +1467,10 @@ class HouseCard extends HTMLElement {
             </div>`).join('')
             + (reloadRow ? `<div class="entity-menu-separator"></div>${reloadRow}` : '');
 
-        // Position menu using fixed coords to escape overflow:hidden on .card
         const rect = tile.getBoundingClientRect();
-        menu.style.top  = `${rect.bottom}px`;
-        menu.style.left = `${rect.left}px`;
-        this.shadowRoot.querySelector('.card').appendChild(menu);
+        menu.style.top  = `${rect.bottom + window.scrollY}px`;
+        menu.style.left = `${rect.left + window.scrollX}px`;
+        document.body.appendChild(menu);
 
         const handleMenuClick = (e) => {
             e.stopPropagation();
@@ -2473,61 +2507,6 @@ class HouseCard extends HTMLElement {
           }
           .power-station-tile__divider {
               opacity: 0.5;
-          }
-          
-          /* ENTITY MENU */
-          .entity-menu {
-              position: fixed;
-              background: rgba(30, 30, 30, 0.98);
-              border: 1px solid rgba(255, 255, 255, 0.15);
-              border-radius: 8px;
-              padding: 4px;
-              z-index: 1000;
-              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-              backdrop-filter: blur(10px);
-              min-width: 150px;
-              animation: menuFadeIn 0.15s ease-out;
-              pointer-events: auto;
-          }
-          
-          @keyframes menuFadeIn {
-              from { opacity: 0; transform: translateY(-5px); }
-              to { opacity: 1; transform: translateY(0); }
-          }
-          
-          .entity-menu-item {
-              display: flex;
-              align-items: center;
-              gap: 8px;
-              padding: 10px 12px;
-              cursor: pointer;
-              border-radius: 4px;
-              transition: background 0.2s;
-              color: #fff;
-              font-size: 0.9rem;
-              pointer-events: auto;
-              user-select: none;
-              -webkit-user-select: none;
-              -webkit-tap-highlight-color: transparent;
-          }
-          
-          .entity-menu-item:hover {
-              background: rgba(255, 255, 255, 0.1);
-          }
-
-          .entity-menu-separator {
-              height: 1px;
-              background: rgba(255, 255, 255, 0.12);
-              margin: 4px 8px;
-          }
-
-          .entity-menu-item--reload ha-icon {
-              color: #EF9A9A;
-          }
-          
-          .entity-menu-item ha-icon {
-              --mdc-icon-size: 20px;
-              color: #64B5F6;
           }
         </style>
         
