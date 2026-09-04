@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.31.8
+ * @version 1.31.9
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -200,6 +200,7 @@ class HouseCard extends HTMLElement {
             this._decorationsRendered = false; // Reset so decorations re-render on config change
             this._lastPowerStationData = null;
             this._lastPowerStationPos = null;
+            console.log('[HouseCard] setConfig PS pos', this._config.power_station_x, this._config.power_station_y, this._config.power_station_width, this._config.power_station_height);
             this._render();
             if (this._hass) this._updateData();
         }
@@ -1277,6 +1278,7 @@ class HouseCard extends HTMLElement {
             if (this._lastPowerStationPos !== posHash) {
                 this._lastPowerStationPos = posHash;
                 const existingTile = container.querySelector('.power-station-tile');
+                console.log('[HouseCard] PS position-only update', { x, y, width, height, existingTile: !!existingTile });
                 if (existingTile) {
                     existingTile.style.top = `${y}%`;
                     existingTile.style.left = `${x}%`;
@@ -1286,6 +1288,7 @@ class HouseCard extends HTMLElement {
             }
             return;
         }
+        console.log('[HouseCard] PS full re-render', { x, y, width, height, lastData: this._lastPowerStationData, hash });
         this._lastPowerStationData = hash;
         this._lastPowerStationPos = posHash;
 
