@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.32.8
+ * @version 1.32.9
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -632,13 +632,10 @@ class HouseCard extends HTMLElement {
             </div>
         `).join('');
         
-        // Position menu near the badge
+        // Position menu near the badge using fixed coords to escape overflow:hidden on .card
         const rect = badge.getBoundingClientRect();
-        const containerRect = this.shadowRoot.querySelector('.card').getBoundingClientRect();
-        menu.style.top = `${rect.top - containerRect.top + rect.height}px`;
-        menu.style.left = `${rect.left - containerRect.left}px`;
-        
-        // Add to shadow DOM
+        menu.style.top  = `${rect.bottom}px`;
+        menu.style.left = `${rect.left}px`;
         this.shadowRoot.querySelector('.card').appendChild(menu);
         
         // Handle menu item selection
@@ -1435,10 +1432,10 @@ class HouseCard extends HTMLElement {
             </div>`).join('')
             + (reloadRow ? `<div class="entity-menu-separator"></div>${reloadRow}` : '');
 
+        // Position menu using fixed coords to escape overflow:hidden on .card
         const rect = tile.getBoundingClientRect();
-        const containerRect = this.shadowRoot.querySelector('.card').getBoundingClientRect();
-        menu.style.top  = `${rect.bottom - containerRect.top}px`;
-        menu.style.left = `${rect.left   - containerRect.left}px`;
+        menu.style.top  = `${rect.bottom}px`;
+        menu.style.left = `${rect.left}px`;
         this.shadowRoot.querySelector('.card').appendChild(menu);
 
         const handleMenuClick = (e) => {
@@ -2480,7 +2477,7 @@ class HouseCard extends HTMLElement {
           
           /* ENTITY MENU */
           .entity-menu {
-              position: absolute;
+              position: fixed;
               background: rgba(30, 30, 30, 0.98);
               border: 1px solid rgba(255, 255, 255, 0.15);
               border-radius: 8px;
