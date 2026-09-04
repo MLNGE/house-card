@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.33.0
+ * @version 1.33.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1429,6 +1429,8 @@ class HouseCard extends HTMLElement {
 
         const data = this._buildPowerStationStats();
 
+        const TILE_SUFFIXES = ['battery', 'total_input_power', 'total_output_power', 'remaining_time', 'temperature'];
+
         const ICONS = {
             battery: 'mdi:battery',
             total_input_power: 'mdi:transmission-tower-import',
@@ -1437,7 +1439,8 @@ class HouseCard extends HTMLElement {
             temperature: 'mdi:thermometer',
         };
 
-        const availableStats = data.stats.filter(item => item.entityId && this._getPowerStationState(item.entityId));
+        const availableStats = data.stats.filter(item =>
+            TILE_SUFFIXES.includes(item.suffix) && item.entityId && this._getPowerStationState(item.entityId));
         const items = availableStats.map(item => {
                 const state = this._getPowerStationState(item.entityId);
                 const unit = state.attributes?.unit_of_measurement || '';
