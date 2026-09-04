@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.32.7
+ * @version 1.32.8
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1395,10 +1395,7 @@ class HouseCard extends HTMLElement {
         const existingMenu = this.shadowRoot.querySelector('.entity-menu');
         if (existingMenu) existingMenu.remove();
 
-        const selection = deviceId
-            ? { deviceId, legacyEntityId: null, legacyPrefix: null }
-            : { deviceId: null, legacyEntityId, legacyPrefix: legacyEntityId ? this._resolvePowerStationPrefix(legacyEntityId) : null };
-        const data = this._buildPowerStationStats(selection);
+        const data = this._buildPowerStationStats();
 
         const ICONS = {
             battery: 'mdi:battery',
