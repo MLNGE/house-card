@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.32.0
+ * @version 1.32.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -3082,10 +3082,10 @@ const EDITOR_SCHEMA = [
         name: "Power Station",
         schema: [
             { name: "power_station_device_id", selector: { device: {} } },
-            { name: "power_station_x", default: 26, selector: { number: { min: 0, max: 100, step: 1, mode: "slider" } } },
-            { name: "power_station_y", default: 84, selector: { number: { min: 0, max: 100, step: 1, mode: "slider" } } },
-            { name: "power_station_width", default: 34, selector: { number: { min: 10, max: 100, step: 1, mode: "slider" } } },
-            { name: "power_station_height", default: 18, selector: { number: { min: 8, max: 40, step: 1, mode: "slider" } } }
+            { name: "power_station_x", selector: { number: { min: 0, max: 100, step: 1, mode: "slider" } } },
+            { name: "power_station_y", selector: { number: { min: 0, max: 100, step: 1, mode: "slider" } } },
+            { name: "power_station_width", selector: { number: { min: 10, max: 100, step: 1, mode: "slider" } } },
+            { name: "power_station_height", selector: { number: { min: 8, max: 40, step: 1, mode: "slider" } } }
         ]
     },
     {
@@ -3179,7 +3179,15 @@ class HouseCardEditor extends HTMLElement {
             this._form.addEventListener("value-changed", (ev) => {
                 // Merge changes with existing config to preserve any custom YAML variables (like img_*)
                 // that aren't explicitly defined in the visual editor schema.
-                const updatedConfig = { ...this._config, ...ev.detail.value };
+                const incoming = ev.detail.value;
+                const updatedConfig = {
+                    power_station_x: 26,
+                    power_station_y: 84,
+                    power_station_width: 34,
+                    power_station_height: 18,
+                    ...this._config,
+                    ...incoming
+                };
                 this._config = updatedConfig;
                 
                 this.dispatchEvent(new CustomEvent("config-changed", {
