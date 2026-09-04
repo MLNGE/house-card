@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.32.3
+ * @version 1.32.4
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -3077,17 +3077,7 @@ const EDITOR_SCHEMA = [
     { name: "season_entity", selector: { entity: { domain: "sensor" } } },
     { name: "sun_entity", selector: { entity: { domain: "sun" } } },
     { name: "aurora_entity", selector: { entity: { domain: "binary_sensor" } } },
-    {
-        type: "grid",
-        name: "Power Station",
-        schema: [
-            { name: "power_station_device_id", selector: { device: {} } },
-            { name: "power_station_x", selector: { number: { min: 0, max: 100, step: 1, mode: "slider" } } },
-            { name: "power_station_y", selector: { number: { min: 0, max: 100, step: 1, mode: "slider" } } },
-            { name: "power_station_width", selector: { number: { min: 10, max: 100, step: 1, mode: "slider" } } },
-            { name: "power_station_height", selector: { number: { min: 8, max: 40, step: 1, mode: "slider" } } }
-        ]
-    },
+    { name: "power_station_device_id", selector: { device: {} } },
     {
         type: "grid",
         name: "Visual Effects",
@@ -3125,22 +3115,64 @@ class HouseCardEditor extends HTMLElement {
 
     setConfig(config) {
         this._config = config || {};
-        console.log('[Editor] setConfig received', JSON.stringify({x: this._config.power_station_x, y: this._config.power_station_y}));
         this.render();
     }
 
     set hass(hass) {
         this._hass = hass;
-        if (this._form) {
-            this._form.hass = hass;
-        }
+        if (this._form) this._form.hass = hass;
+    }
+
+    _dispatchConfig() {
+        this.dispatchEvent(new CustomEvent("config-changed", {
+            detail: { config: this._config },
+            bubbles: true,
+            composed: true
+        }));
+    }
+
+    _renderPsSliders() {
+        const fields = [
+            { key: 'power_station_x',      label: 'Position X (%)',   min: 0,  max: 100, step: 1, def: 26 },
+            { key: 'power_station_y',      label: 'Position Y (%)',   min: 0,  max: 100, step: 1, def: 84 },
+            { key: 'power_station_width',  label: 'Width (%)',        min: 10, max: 100, step: 1, def: 34 },
+            { key: 'power_station_height', label: 'Height (%)',       min: 8,  max: 40,  step: 1, def: 18 },
+        ];
+        const container = this.shadowRoot.querySelector('.ps-sliders');
+        if (!container) return;
+        container.innerHTML = fields.map(f => {
+            const val = this._config[f.key] ?? f.def;
+            return `<div class="ps-row">
+                <label>${f.label}</label>
+                <input type="range" min="${f.min}" max="${f.max}" step="${f.step}" value="${val}" data-key="${f.key}">
+                <span class="ps-val">${val}</span>
+            </div>`;
+        }).join('');
+        container.querySelectorAll('input[type=range]').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const span = e.target.nextElementSibling;
+                if (span) span.textContent = e.target.value;
+            });
+            input.addEventListener('change', (e) => {
+                this._config = { ...this._config, [e.target.dataset.key]: Number(e.target.value) };
+                this._dispatchConfig();
+            });
+        });
     }
 
     render() {
         if (!this._form) {
+            this.shadowRoot.innerHTML = `<style>
+                .ps-sliders { padding: 8px 16px; }
+                .ps-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+                .ps-row label { flex: 0 0 120px; font-size: 14px; color: var(--primary-text-color); }
+                .ps-row input[type=range] { flex: 1; }
+                .ps-val { flex: 0 0 28px; text-align: right; font-size: 14px; color: var(--secondary-text-color); }
+            </style>
+            <div class="ps-sliders"></div>`;
+
             this._form = document.createElement("ha-form");
             this._form.schema = EDITOR_SCHEMA;
-            
             this._form.computeLabel = (s) => {
                 const labels = {
                     title: "Title (Optional)",
@@ -3162,10 +3194,6 @@ class HouseCardEditor extends HTMLElement {
                     sky_gradient: "Sky Gradients",
                     shooting_stars: "Shooting Stars",
                     seasonal_particles: "Seasonal Particles",
-                    power_station_x: "Power Station X",
-                    power_station_y: "Power Station Y",
-                    power_station_width: "Power Station Width",
-                    power_station_height: "Power Station Height",
                     window_lights_debug: "Debug Window Lights",
                     nav_links_debug: "Debug Nav Links",
                     decorations_debug: "Debug Decorations",
@@ -3176,41 +3204,16 @@ class HouseCardEditor extends HTMLElement {
                 };
                 return labels[s.name] || s.name;
             };
-
             this._form.addEventListener("value-changed", (ev) => {
-                // Merge changes with existing config to preserve any custom YAML variables (like img_*)
-                // that aren't explicitly defined in the visual editor schema.
-                const incoming = ev.detail.value;
-                const updatedConfig = {
-                    power_station_x: 26,
-                    power_station_y: 84,
-                    power_station_width: 34,
-                    power_station_height: 18,
-                    ...this._config,
-                    ...incoming
-                };
-                this._config = updatedConfig;
-                console.log('[Editor] value-changed incoming', JSON.stringify({x: incoming.power_station_x, y: incoming.power_station_y, w: incoming.power_station_width, h: incoming.power_station_height}));
-                console.log('[Editor] dispatching config', JSON.stringify({x: this._config.power_station_x, y: this._config.power_station_y, w: this._config.power_station_width, h: this._config.power_station_height}));
-                
-                this.dispatchEvent(new CustomEvent("config-changed", {
-                    detail: { config: this._config },
-                    bubbles: true,
-                    composed: true
-                }));
+                // Preserve custom YAML keys not in the schema
+                this._config = { ...this._config, ...ev.detail.value };
+                this._dispatchConfig();
             });
             this.shadowRoot.appendChild(this._form);
         }
-        const formData = {
-                power_station_x: 26,
-                power_station_y: 84,
-                power_station_width: 34,
-                power_station_height: 18,
-                ...this._config
-            };
-        console.log('[Editor] setting _form.data', JSON.stringify({x: formData.power_station_x, y: formData.power_station_y}));
-        this._form.data = formData;
+        this._form.data = { ...this._config };
         if (this._hass) this._form.hass = this._hass;
+        this._renderPsSliders();
     }
 }
 
