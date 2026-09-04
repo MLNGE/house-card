@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.32.4
+ * @version 1.32.5
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1305,14 +1305,7 @@ class HouseCard extends HTMLElement {
                             </div>`;
 
                         if (!this._powerStationDelegated) {
-                                container.addEventListener('click', (e) => {
-                                        const tile = e.target.closest('.power-station-tile');
-                                        if (!tile) return;
-                                        e.stopPropagation();
-                                        const tileDeviceId = tile.getAttribute('data-device-id') || null;
-                                        const tileEntity = tile.getAttribute('data-entity') || null;
-                                        this._openPowerStationPopup(tileDeviceId, tileEntity);
-                                });
+                                this._attachPowerStationHandlers(container);
                                 this._powerStationDelegated = true;
                         }
                         return;
@@ -1341,16 +1334,143 @@ class HouseCard extends HTMLElement {
           </div>`;
 
         if (!this._powerStationDelegated) {
-            container.addEventListener('click', (e) => {
-                const tile = e.target.closest('.power-station-tile');
-                if (!tile) return;
-                e.stopPropagation();
-                const tileDeviceId = tile.getAttribute('data-device-id') || null;
-                const tileEntity = tile.getAttribute('data-entity') || null;
-                this._openPowerStationPopup(tileDeviceId, tileEntity);
-            });
+            this._attachPowerStationHandlers(container);
             this._powerStationDelegated = true;
         }
+    }
+
+    _attachPowerStationHandlers(container) {
+        let longPressActive = false;
+        let longPressTimer = null;
+        let startX = 0, startY = 0;
+        const MOVE_THRESHOLD = 10;
+        const LONG_PRESS_MS = 500;
+
+        const handleStart = (e, isTouch) => {
+            const tile = e.target.closest('.power-station-tile');
+            if (!tile) return;
+            const touch = isTouch ? e.touches[0] : e;
+            startX = touch.clientX;
+            startY = touch.clientY;
+            longPressActive = false;
+            if (longPressTimer) clearTimeout(longPressTimer);
+            longPressTimer = setTimeout(() => {
+                longPressActive = true;
+                const deviceId = tile.getAttribute('data-device-id') || null;
+                const entityId = tile.getAttribute('data-entity') || null;
+                this._showPowerStationMenu(tile, deviceId, entityId);
+            }, LONG_PRESS_MS);
+        };
+
+        const handleMove = (e, isTouch) => {
+            if (!longPressTimer) return;
+            const touch = isTouch ? e.touches[0] : e;
+            if (Math.abs(touch.clientX - startX) > MOVE_THRESHOLD || Math.abs(touch.clientY - startY) > MOVE_THRESHOLD) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        };
+
+        const handleEnd = (e, isTouch) => {
+            if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+            if (longPressActive) { longPressActive = false; return; }
+            const tile = e.target.closest('.power-station-tile');
+            if (!tile) return;
+            e.stopPropagation();
+            const deviceId = tile.getAttribute('data-device-id') || null;
+            const entityId = tile.getAttribute('data-entity') || null;
+            this._openPowerStationPopup(deviceId, entityId);
+        };
+
+        container.addEventListener('mousedown',  (e) => handleStart(e, false));
+        container.addEventListener('mousemove',  (e) => handleMove(e, false));
+        container.addEventListener('mouseup',    (e) => handleEnd(e, false));
+        container.addEventListener('touchstart', (e) => handleStart(e, true), { passive: true });
+        container.addEventListener('touchmove',  (e) => handleMove(e, true),  { passive: true });
+        container.addEventListener('touchend',   (e) => handleEnd(e, true));
+    }
+
+    _showPowerStationMenu(tile, deviceId, legacyEntityId) {
+        const existingMenu = this.shadowRoot.querySelector('.entity-menu');
+        if (existingMenu) existingMenu.remove();
+
+        const selection = deviceId
+            ? { deviceId, legacyEntityId: null, legacyPrefix: null }
+            : { deviceId: null, legacyEntityId, legacyPrefix: legacyEntityId ? this._resolvePowerStationPrefix(legacyEntityId) : null };
+        const data = this._buildPowerStationStats(selection);
+
+        const ICONS = {
+            battery: 'mdi:battery',
+            total_input_power: 'mdi:transmission-tower-import',
+            total_output_power: 'mdi:transmission-tower-export',
+            remaining_time: 'mdi:timer-outline',
+            temperature: 'mdi:thermometer',
+        };
+
+        const availableStats = data.stats.filter(item => item.entityId && this._getPowerStationState(item.entityId));
+        const items = availableStats.map(item => {
+                const state = this._getPowerStationState(item.entityId);
+                const unit = state.attributes?.unit_of_measurement || '';
+                const val = this._formatPowerStationValue(state);
+                return { id: item.entityId, label: `${item.label}: ${val}${unit ? ' ' + unit : ''}`, icon: ICONS[item.suffix] || 'mdi:flash', action: 'more-info' };
+            });
+
+        // Resolve config_entry_id for reload action
+        const anyEntityId = availableStats[0]?.entityId;
+        const configEntryId = anyEntityId ? this._hass?.entities?.[anyEntityId]?.config_entry_id : null;
+
+        if (items.length === 0 && !configEntryId) return;
+
+        const reloadRow = configEntryId
+            ? `<div class="entity-menu-item entity-menu-item--reload" data-action="reload">
+                <ha-icon icon="mdi:refresh"></ha-icon>
+                <span>Reload device</span>
+               </div>`
+            : '';
+
+        const menu = document.createElement('div');
+        menu.className = 'entity-menu';
+        menu.innerHTML = items.map(ent => `
+            <div class="entity-menu-item" data-entity="${ent.id}">
+                <ha-icon icon="${ent.icon}"></ha-icon>
+                <span>${ent.label}</span>
+            </div>`).join('')
+            + (reloadRow ? `<div class="entity-menu-separator"></div>${reloadRow}` : '');
+
+        const rect = tile.getBoundingClientRect();
+        const containerRect = this.shadowRoot.querySelector('.card').getBoundingClientRect();
+        menu.style.top  = `${rect.bottom - containerRect.top}px`;
+        menu.style.left = `${rect.left   - containerRect.left}px`;
+        this.shadowRoot.querySelector('.card').appendChild(menu);
+
+        const handleMenuClick = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const item = e.target.closest('.entity-menu-item');
+            if (!item) return;
+            if (item.dataset.action === 'reload' && configEntryId) {
+                setTimeout(() => {
+                    this._hass.callService('homeassistant', 'reload_config_entry', { entry_id: configEntryId });
+                    menu.remove();
+                    cleanup();
+                }, 50);
+            } else if (item.dataset.entity) {
+                setTimeout(() => { this._fireMoreInfo(item.getAttribute('data-entity')); menu.remove(); cleanup(); }, 50);
+            }
+        };
+        const closeMenu = (e) => { if (!e.target.closest('.entity-menu')) { menu.remove(); cleanup(); } };
+        const cleanup = () => {
+            document.removeEventListener('mousedown', closeMenu);
+            document.removeEventListener('touchstart', closeMenu);
+            menu.removeEventListener('mousedown', handleMenuClick);
+            menu.removeEventListener('touchstart', handleMenuClick);
+        };
+        menu.addEventListener('mousedown', handleMenuClick);
+        menu.addEventListener('touchstart', handleMenuClick, { passive: false });
+        setTimeout(() => {
+            document.addEventListener('mousedown', closeMenu);
+            document.addEventListener('touchstart', closeMenu, { passive: true });
+        }, 150);
     }
 
     _openPowerStationPopup(deviceId, legacyEntityId = null) {
@@ -2398,6 +2518,16 @@ class HouseCard extends HTMLElement {
           
           .entity-menu-item:hover {
               background: rgba(255, 255, 255, 0.1);
+          }
+
+          .entity-menu-separator {
+              height: 1px;
+              background: rgba(255, 255, 255, 0.12);
+              margin: 4px 8px;
+          }
+
+          .entity-menu-item--reload ha-icon {
+              color: #EF9A9A;
           }
           
           .entity-menu-item ha-icon {
