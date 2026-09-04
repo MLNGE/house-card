@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.32.5
+ * @version 1.32.7
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1340,42 +1340,43 @@ class HouseCard extends HTMLElement {
     }
 
     _attachPowerStationHandlers(container) {
-        let longPressActive = false;
-        let longPressTimer = null;
+        let pressedTile = null;
         let startX = 0, startY = 0;
         const MOVE_THRESHOLD = 10;
-        const LONG_PRESS_MS = 500;
 
         const handleStart = (e, isTouch) => {
             const tile = e.target.closest('.power-station-tile');
             if (!tile) return;
             const touch = isTouch ? e.touches[0] : e;
+            pressedTile = tile;
             startX = touch.clientX;
             startY = touch.clientY;
-            longPressActive = false;
-            if (longPressTimer) clearTimeout(longPressTimer);
-            longPressTimer = setTimeout(() => {
-                longPressActive = true;
+            this._psLongPressActive = false;
+            if (this._psLongPressTimer) clearTimeout(this._psLongPressTimer);
+            this._psLongPressTimer = setTimeout(() => {
+                this._psLongPressActive = true;
                 const deviceId = tile.getAttribute('data-device-id') || null;
                 const entityId = tile.getAttribute('data-entity') || null;
                 this._showPowerStationMenu(tile, deviceId, entityId);
-            }, LONG_PRESS_MS);
+            }, 500);
         };
 
         const handleMove = (e, isTouch) => {
-            if (!longPressTimer) return;
+            if (!this._psLongPressTimer) return;
             const touch = isTouch ? e.touches[0] : e;
             if (Math.abs(touch.clientX - startX) > MOVE_THRESHOLD || Math.abs(touch.clientY - startY) > MOVE_THRESHOLD) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
+                clearTimeout(this._psLongPressTimer);
+                this._psLongPressTimer = null;
             }
         };
 
         const handleEnd = (e, isTouch) => {
-            if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-            if (longPressActive) { longPressActive = false; return; }
+            if (this._psLongPressTimer) { clearTimeout(this._psLongPressTimer); this._psLongPressTimer = null; }
+            // Long-press already showed the menu — don't also fire the tap action
+            if (this._psLongPressActive) { pressedTile = null; this._psLongPressActive = false; return; }
             const tile = e.target.closest('.power-station-tile');
-            if (!tile) return;
+            if (!tile || tile !== pressedTile) { pressedTile = null; return; }
+            pressedTile = null;
             e.stopPropagation();
             const deviceId = tile.getAttribute('data-device-id') || null;
             const entityId = tile.getAttribute('data-entity') || null;
@@ -1387,7 +1388,7 @@ class HouseCard extends HTMLElement {
         container.addEventListener('mouseup',    (e) => handleEnd(e, false));
         container.addEventListener('touchstart', (e) => handleStart(e, true), { passive: true });
         container.addEventListener('touchmove',  (e) => handleMove(e, true),  { passive: true });
-        container.addEventListener('touchend',   (e) => handleEnd(e, true));
+        container.addEventListener('touchend',   (e) => handleEnd(e, true), { passive: true });
     }
 
     _showPowerStationMenu(tile, deviceId, legacyEntityId) {
@@ -3293,13 +3294,14 @@ class HouseCardEditor extends HTMLElement {
     render() {
         if (!this._form) {
             this.shadowRoot.innerHTML = `<style>
-                .ps-sliders { padding: 8px 16px; }
+                .ps-section { border-top: 1px solid var(--divider-color, rgba(0,0,0,0.12)); margin-top: 8px; padding-top: 4px; }
+                .ps-section-title { padding: 12px 16px 4px; font-size: 13px; font-weight: 500; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.05em; }
+                .ps-sliders { padding: 4px 16px 8px; }
                 .ps-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
                 .ps-row label { flex: 0 0 120px; font-size: 14px; color: var(--primary-text-color); }
                 .ps-row input[type=range] { flex: 1; }
                 .ps-val { flex: 0 0 28px; text-align: right; font-size: 14px; color: var(--secondary-text-color); }
-            </style>
-            <div class="ps-sliders"></div>`;
+            </style>`;
 
             this._form = document.createElement("ha-form");
             this._form.schema = EDITOR_SCHEMA;
@@ -3340,6 +3342,11 @@ class HouseCardEditor extends HTMLElement {
                 this._dispatchConfig();
             });
             this.shadowRoot.appendChild(this._form);
+
+            const psSection = document.createElement('div');
+            psSection.className = 'ps-section';
+            psSection.innerHTML = '<div class="ps-section-title">Power Station Position</div><div class="ps-sliders"></div>';
+            this.shadowRoot.appendChild(psSection);
         }
         this._form.data = { ...this._config };
         if (this._hass) this._form.hass = this._hass;
