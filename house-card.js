@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.32.1
+ * @version 1.32.2
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -3189,6 +3189,8 @@ class HouseCardEditor extends HTMLElement {
                     ...incoming
                 };
                 this._config = updatedConfig;
+                console.log('[Editor] value-changed incoming', JSON.stringify({x: incoming.power_station_x, y: incoming.power_station_y, w: incoming.power_station_width, h: incoming.power_station_height}));
+                console.log('[Editor] dispatching config', JSON.stringify({x: this._config.power_station_x, y: this._config.power_station_y, w: this._config.power_station_width, h: this._config.power_station_height}));
                 
                 this.dispatchEvent(new CustomEvent("config-changed", {
                     detail: { config: this._config },
