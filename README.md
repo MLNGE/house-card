@@ -19,6 +19,7 @@ This isn't just a sensor display — it's a **living visualization** that respon
 | 📊 **Sensor Badges** | Temperature, humidity, CO2, power — positioned anywhere |
 | 💡 **Interactive Lights** | Click windows to toggle lights with realistic glow effects |
 | 🔗 **Navigation Hotspots** | Clickable areas to navigate between HA views |
+| 🔋 **Power Station Tile** | Live stats tile with long-press menu to toggle AC/USB output switches |
 
 ## Features
 
@@ -35,6 +36,7 @@ This isn't just a sensor display — it's a **living visualization** that respon
 - 🎮 **Gaming/Party Mode** - Ambient lighting effects
 - 🖼️ **Seasonal Images** - Automatic day/night and seasonal background changes
 - 🎄 **Christmas Mode** - Special images from Dec 14 - Jan 14
+- 🔋 **Power Station Tile** - Live stats overlay with long-press context menu to toggle AC output and USB output switches
 
 ## Required Integrations
 
@@ -133,12 +135,14 @@ party_mode_entity: input_boolean.gaming_mode  # Optional: Toggles "Gaming Ambien
 
 # --- Power Station Tile ---
 # Select the power station device in the visual editor.
-# The card derives the matching stats automatically from that device.
+# The card auto-discovers all matching entities (battery %, power in/out, AC/USB output switches, etc.)
+# from the selected device — no manual entity mapping needed.
+# Long-press the tile to open a context menu with live stats and AC/USB output toggle switches.
 # power_station_device_id: device id from the selector
-power_station_x: 26
-power_station_y: 84
-power_station_width: 34
-power_station_height: 18
+power_station_x: 26       # Horizontal position % (0 = left, 100 = right)
+power_station_y: 84       # Vertical position %
+power_station_width: 34   # Width %
+power_station_height: 18  # Height %
 
 # --- Moon Configuration ---
 # Requires the Moon integration: https://www.home-assistant.io/integrations/moon/
@@ -311,6 +315,23 @@ Examples:
 - `winter_night.png`
 - `autumn_rainy_day.png`
 - `winter_xmas_night.png`
+
+## Changelog
+
+### v1.36.1
+- Fix crash when clicking the power station tile (single tap) caused by an internal entity map resolution error
+
+### v1.36.0
+- Fix long-press menu on power station tile not working after the tile re-renders
+- Fix single-entity badge long-press opening More Info for the wrong entity
+
+### v1.35.0
+- Power station tile now re-renders when AC output or USB output switch state changes
+- Long-press menus (badge and power station) now flip above the anchor when there is insufficient space below the viewport
+
+### v1.34.0
+- Long-press context menu on the power station tile: toggle AC output and USB output switches directly from the dashboard
+- ON/OFF indicator badges in the power station menu
 
 ## License
 
