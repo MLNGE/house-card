@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.33.2
+ * @version 1.33.3
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1447,9 +1447,10 @@ class HouseCard extends HTMLElement {
                 return { id: item.entityId, label: `${item.label}: ${val}`, icon: ICONS[item.suffix] || 'mdi:flash', action: 'more-info' };
             });
 
-        // Resolve config_entry_id for reload action
+        // Prefer explicitly configured Oukitel entry ID, fall back to auto-resolved one
         const anyEntityId = availableStats[0]?.entityId;
-        const configEntryId = anyEntityId ? this._hass?.entities?.[anyEntityId]?.config_entry_id : null;
+        const autoEntryId = anyEntityId ? this._hass?.entities?.[anyEntityId]?.config_entry_id : null;
+        const configEntryId = this._config.oukitel_integration_id || autoEntryId;
 
         if (items.length === 0 && !configEntryId) return;
 
@@ -3184,6 +3185,7 @@ const EDITOR_SCHEMA = [
     { name: "sun_entity", selector: { entity: { domain: "sun" } } },
     { name: "aurora_entity", selector: { entity: { domain: "binary_sensor" } } },
     { name: "power_station_device_id", selector: { device: {} } },
+    { name: "oukitel_integration_id", selector: { text: {} } },
     {
         type: "grid",
         name: "Visual Effects",
@@ -3295,6 +3297,7 @@ class HouseCardEditor extends HTMLElement {
                     sun_entity: "Sun Entity",
                     aurora_entity: "Aurora Binary Sensor",
                     power_station_device_id: "Power Station Device",
+                    oukitel_integration_id: "Oukitel Integration Entry ID",
                     moon_glow: "Moon Glow",
                     sun_glow: "Sun Glow",
                     sun_rays: "Sun Rays",
