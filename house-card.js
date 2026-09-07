@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.34.0
+ * @version 1.36.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -108,7 +108,6 @@ class HouseCard extends HTMLElement {
       this._lastWindowLightsData = null;
     this._lastPowerStationData = null;
     this._lastPowerStationPos = null;
-    this._powerStationDelegated = false;
       
       // Visibility tracking
       this._isVisible = false;
@@ -657,9 +656,9 @@ class HouseCard extends HTMLElement {
             entities.push({ id: room.co2_entity, label: value, icon: 'mdi:molecule-co2' });
         }
         
-        if (entities.length <= 1) {
-            // No menu needed, just one entity
-            this._fireMoreInfo(room.entity);
+        if (entities.length === 0) return;
+        if (entities.length === 1) {
+            this._fireMoreInfo(entities[0].id);
             return;
         }
         
@@ -674,9 +673,14 @@ class HouseCard extends HTMLElement {
         `).join('');
         
         const rect = badge.getBoundingClientRect();
-        menu.style.top  = `${rect.bottom + window.scrollY}px`;
-        menu.style.left = `${rect.left + window.scrollX}px`;
         document.body.appendChild(menu);
+        const menuH = menu.offsetHeight;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const top = spaceBelow >= menuH || spaceBelow >= rect.top
+            ? rect.bottom + window.scrollY
+            : rect.top + window.scrollY - menuH;
+        menu.style.top  = `${top}px`;
+        menu.style.left = `${rect.left + window.scrollX}px`;
         
         // Handle menu item selection
         const selectMenuItem = (item) => {
@@ -1287,6 +1291,8 @@ class HouseCard extends HTMLElement {
         const outputState = this._getPowerStationState(data.entities.total_output_power);
         const remainingState = this._getPowerStationState(data.entities.remaining_time);
         const temperatureState = this._getPowerStationState(data.entities.temperature);
+        const acOutputState = this._getPowerStationState(data.entities.ac_output);
+        const usbOutputState = this._getPowerStationState(data.entities.usb_output);
         const hash = [
             entityId,
             data.mode,
@@ -1294,7 +1300,9 @@ class HouseCard extends HTMLElement {
             inputState?.state,
             outputState?.state,
             remainingState?.state,
-            temperatureState?.state
+            temperatureState?.state,
+            acOutputState?.state,
+            usbOutputState?.state
         ].join('|');
 
         const posHash = [
@@ -1310,7 +1318,7 @@ class HouseCard extends HTMLElement {
         const height = this._config.power_station_height ?? 18;
 
         // Position-only change: update styles in-place without re-rendering
-        if (this._lastPowerStationData === hash && this._powerStationDelegated) {
+        if (this._lastPowerStationData === hash && container.querySelector('.power-station-tile')) {
             if (this._lastPowerStationPos !== posHash) {
                 this._lastPowerStationPos = posHash;
                 const existingTile = container.querySelector('.power-station-tile');
@@ -1341,10 +1349,7 @@ class HouseCard extends HTMLElement {
                                 </div>
                             </div>`;
 
-                        if (!this._powerStationDelegated) {
-                                this._attachPowerStationHandlers(container);
-                                this._powerStationDelegated = true;
-                        }
+                        this._attachPowerStationHandlers(container);
                         return;
                 }
 
@@ -1370,10 +1375,7 @@ class HouseCard extends HTMLElement {
             </div>
           </div>`;
 
-        if (!this._powerStationDelegated) {
-            this._attachPowerStationHandlers(container);
-            this._powerStationDelegated = true;
-        }
+        this._attachPowerStationHandlers(container);
     }
 
     _attachPowerStationHandlers(container) {
@@ -1490,9 +1492,14 @@ class HouseCard extends HTMLElement {
             + (reloadRow ? `<div class="entity-menu-separator"></div>${reloadRow}` : '');
 
         const rect = tile.getBoundingClientRect();
-        menu.style.top  = `${rect.bottom + window.scrollY}px`;
-        menu.style.left = `${rect.left + window.scrollX}px`;
         document.body.appendChild(menu);
+        const menuH = menu.offsetHeight;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const top = spaceBelow >= menuH || spaceBelow >= rect.top
+            ? rect.bottom + window.scrollY
+            : rect.top + window.scrollY - menuH;
+        menu.style.top  = `${top}px`;
+        menu.style.left = `${rect.left + window.scrollX}px`;
 
         const handleMenuClick = (e) => {
             e.stopPropagation();
