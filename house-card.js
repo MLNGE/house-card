@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.36.0
+ * @version 1.36.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1247,8 +1247,8 @@ class HouseCard extends HTMLElement {
         return `${raw}${state.attributes?.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : ''}`.trim();
     }
 
-    _buildPowerStationStats(selection = null) {
-        const resolved = selection || this._resolvePowerStationEntityMap();
+    _buildPowerStationStats() {
+        const resolved = this._resolvePowerStationEntityMap();
         const stats = POWER_STATION_SUFFIXES.map((item) => {
             const entityId = resolved.entities[item.suffix];
             const state = this._getPowerStationState(entityId);
@@ -1536,11 +1536,7 @@ class HouseCard extends HTMLElement {
     }
 
     _openPowerStationPopup(deviceId, legacyEntityId = null) {
-        const selection = deviceId
-            ? { deviceId, legacyEntityId: null, legacyPrefix: null }
-            : { deviceId: null, legacyEntityId, legacyPrefix: legacyEntityId ? this._resolvePowerStationPrefix(legacyEntityId) : null };
-
-        const data = this._buildPowerStationStats(selection);
+        const data = this._buildPowerStationStats();
         const infoEntities = data.stats
             .filter((item) => item.entityId && this._getPowerStationState(item.entityId))
             .map((item) => ({ entity: item.entityId }));
