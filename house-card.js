@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.33.3
+ * @version 1.34.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -40,6 +40,7 @@ const POWER_STATION_SUFFIXES = [
     { suffix: "dc_car_output_power", domain: "sensor", label: "DC Car Output", icon: "mdi:car-electric" },
     { suffix: "dc_input_power", domain: "sensor", label: "DC Input", icon: "mdi:current-dc" },
     { suffix: "dc_output", domain: "switch", label: "DC Output", icon: "mdi:power" },
+    { suffix: "usb_output", domain: "switch", label: "USB Output", icon: "mdi:usb" },
     { suffix: "inverter_version", domain: "sensor", label: "Inverter Version", icon: "mdi:chip" },
     { suffix: "output_frequency", domain: "select", label: "Output Frequency", icon: "mdi:sine-wave" },
     { suffix: "output_voltage", domain: "select", label: "Output Voltage", icon: "mdi:sine-wave" },
@@ -623,6 +624,11 @@ class HouseCard extends HTMLElement {
             .entity-menu-item:hover { background: rgba(255,255,255,0.1); }
             .entity-menu-separator { height: 1px; background: rgba(255,255,255,0.12); margin: 4px 8px; }
             .entity-menu-item--reload ha-icon { color: #EF9A9A; }
+            .entity-menu-item--switch { justify-content: space-between; }
+            .entity-menu-item--switch .switch-left { display: flex; align-items: center; gap: 8px; }
+            .entity-menu-item--switch .switch-badge { font-size: 0.75rem; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
+            .entity-menu-item--switch .switch-badge--on { background: rgba(76,175,80,0.25); color: #81C784; }
+            .entity-menu-item--switch .switch-badge--off { background: rgba(255,255,255,0.08); color: #888; }
             .entity-menu-item ha-icon { --mdc-icon-size: 20px; color: #64B5F6; }
         `;
         document.head.appendChild(s);
@@ -1430,6 +1436,7 @@ class HouseCard extends HTMLElement {
         const data = this._buildPowerStationStats();
 
         const TILE_SUFFIXES = ['battery', 'total_input_power', 'total_output_power', 'remaining_time', 'temperature'];
+        const SWITCH_SUFFIXES = ['ac_output', 'usb_output'];
 
         const ICONS = {
             battery: 'mdi:battery',
@@ -1447,12 +1454,23 @@ class HouseCard extends HTMLElement {
                 return { id: item.entityId, label: `${item.label}: ${val}`, icon: ICONS[item.suffix] || 'mdi:flash', action: 'more-info' };
             });
 
+        const switchStats = data.stats.filter(item =>
+            SWITCH_SUFFIXES.includes(item.suffix) && item.entityId);
+
         // Prefer explicitly configured Oukitel entry ID, fall back to auto-resolved one
         const anyEntityId = availableStats[0]?.entityId;
         const autoEntryId = anyEntityId ? this._hass?.entities?.[anyEntityId]?.config_entry_id : null;
         const configEntryId = this._config.oukitel_integration_id || autoEntryId;
 
-        if (items.length === 0 && !configEntryId) return;
+        if (items.length === 0 && switchStats.length === 0 && !configEntryId) return;
+
+        const switchRows = switchStats.map(item => {
+            const isOn = this._getPowerStationState(item.entityId)?.state === 'on';
+            return `<div class="entity-menu-item entity-menu-item--switch" data-action="toggle" data-entity="${item.entityId}">
+                <span class="switch-left"><ha-icon icon="${item.icon}"></ha-icon><span>${item.label}</span></span>
+                <span class="switch-badge switch-badge--${isOn ? 'on' : 'off'}">${isOn ? 'ON' : 'OFF'}</span>
+               </div>`;
+        }).join('');
 
         const reloadRow = configEntryId
             ? `<div class="entity-menu-item entity-menu-item--reload" data-action="reload">
@@ -1468,6 +1486,7 @@ class HouseCard extends HTMLElement {
                 <ha-icon icon="${ent.icon}"></ha-icon>
                 <span>${ent.label}</span>
             </div>`).join('')
+            + (switchRows ? `<div class="entity-menu-separator"></div>${switchRows}` : '')
             + (reloadRow ? `<div class="entity-menu-separator"></div>${reloadRow}` : '');
 
         const rect = tile.getBoundingClientRect();
@@ -1486,6 +1505,10 @@ class HouseCard extends HTMLElement {
                     menu.remove();
                     cleanup();
                 }, 50);
+            } else if (item.dataset.action === 'toggle' && item.dataset.entity) {
+                this._hass.callService('switch', 'toggle', {}, { entity_id: item.dataset.entity });
+                menu.remove();
+                cleanup();
             } else if (item.dataset.entity) {
                 setTimeout(() => { this._fireMoreInfo(item.getAttribute('data-entity')); menu.remove(); cleanup(); }, 50);
             }
