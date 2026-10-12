@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.37.3
+ * @version 1.37.5
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1280,6 +1280,36 @@ class HouseCard extends HTMLElement {
         return match ? match[0] : value;
     }
 
+    _getPowerStationTitle(data, fallback = 'Power Station') {
+        const entityIds = Object.values(data?.entities || {}).filter(Boolean);
+        let isCharging = false;
+        let isDischarging = false;
+
+        for (const entityId of entityIds) {
+            const state = this._getPowerStationState(entityId);
+            if (!state) continue;
+            const key = String(entityId).toLowerCase();
+            const stateValue = String(state.state || '').toLowerCase();
+            const isBooleanOn = ['on', 'true', '1', 'yes'].includes(stateValue);
+            if (key.includes('charging') && isBooleanOn) {
+                isCharging = true;
+            }
+            if (key.includes('discharging') && isBooleanOn) {
+                isDischarging = true;
+            }
+            if (stateValue === 'charging') {
+                isCharging = true;
+            }
+            if (stateValue === 'discharging') {
+                isDischarging = true;
+            }
+        }
+
+        if (isCharging) return 'Charging';
+        if (isDischarging) return 'Discharging';
+        return data?.title || fallback;
+    }
+
     _buildPowerStationStats() {
         const resolved = this._resolvePowerStationEntityMap();
         const stats = POWER_STATION_SUFFIXES.map((item) => {
@@ -1390,13 +1420,14 @@ class HouseCard extends HTMLElement {
         const outputSummary = this._formatPowerStationSummaryValue(data.summary.output);
         const batteryMatch = String(data.summary.battery).match(/-?\d*\.?\d+/);
         const batteryPercent = batteryMatch ? Math.max(0, Math.min(100, Number(batteryMatch[0]))) : 0;
+        const powerTitle = this._getPowerStationTitle(data, data.title || 'Power Station');
 
         container.innerHTML = `
           <div class="power-station-tile" data-entity="${entityId}" data-device-id="${data.deviceId || ''}" style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%">
             <div class="power-station-tile__header">
               <ha-icon icon="mdi:battery"></ha-icon>
               <div class="power-station-tile__title-wrap">
-                <div class="power-station-tile__title">${data.title}</div>
+                <div class="power-station-tile__title">${powerTitle}</div>
                 <div class="power-station-tile__subtitle">
                   <span class="power-station-tile__battery">
                     <span class="power-station-tile__battery-bar">
@@ -2609,7 +2640,7 @@ class HouseCard extends HTMLElement {
           .power-station-tile__value {
               min-width: 0;
               font-variant-numeric: tabular-nums;
-              font-weight: 800;
+              font-weight: 700;
               color: #ffffff;
           }
           .power-station-tile__value--input {
@@ -2621,7 +2652,7 @@ class HouseCard extends HTMLElement {
           .power-station-tile__unit {
               color: #ffffff;
               font-size: 0.58rem;
-              font-weight: 800;
+              font-weight: 700;
           }
           .power-station-tile--empty {
               justify-content: space-between;
