@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.36.4
+ * @version 1.36.5
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1388,15 +1388,22 @@ class HouseCard extends HTMLElement {
 
         const inputSummary = this._formatPowerStationSummaryValue(data.summary.input);
         const outputSummary = this._formatPowerStationSummaryValue(data.summary.output);
+        const batteryMatch = String(data.summary.battery).match(/-?\d*\.?\d+/);
+        const batteryPercent = batteryMatch ? Math.max(0, Math.min(100, Number(batteryMatch[0]))) : 0;
 
         container.innerHTML = `
           <div class="power-station-tile" data-entity="${entityId}" data-device-id="${data.deviceId || ''}" style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%">
             <div class="power-station-tile__header">
-              <ha-icon icon="mdi:power-socket"></ha-icon>
+              <ha-icon icon="mdi:battery"></ha-icon>
               <div class="power-station-tile__title-wrap">
                 <div class="power-station-tile__title">${data.title}</div>
                 <div class="power-station-tile__subtitle">
-                  <span class="power-station-tile__battery-value">${data.summary.battery}</span>
+                  <span class="power-station-tile__battery">
+                    <span class="power-station-tile__battery-bar">
+                      <span class="power-station-tile__battery-fill" style="width: ${batteryPercent}%"></span>
+                    </span>
+                    <span class="power-station-tile__battery-value">${data.summary.battery}</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -1408,6 +1415,7 @@ class HouseCard extends HTMLElement {
                         </div>
                         <div class="power-station-tile__meta">
                             <span>Remain ${data.summary.remaining}</span>
+                            <span class="power-station-tile__divider">/</span>
                             <span>Temp ${data.summary.temperature}</span>
             </div>
           </div>`;
@@ -2527,9 +2535,9 @@ class HouseCard extends HTMLElement {
           }
           .power-station-tile__header ha-icon {
               --mdc-icon-size: 16px;
-              color: #64B5F6;
+              color: #4ade80;
               flex: 0 0 auto;
-              filter: drop-shadow(0 0 3px rgba(100, 181, 246, 0.45));
+              filter: drop-shadow(0 0 3px rgba(74, 222, 128, 0.45));
           }
           .power-station-tile__title-wrap {
               display: flex;
@@ -2544,14 +2552,41 @@ class HouseCard extends HTMLElement {
               text-transform: uppercase;
           }
           .power-station-tile__subtitle {
+              display: flex;
+              align-items: center;
               font-size: 0.54rem;
               text-transform: uppercase;
               letter-spacing: 0.08em;
               color: rgba(255, 255, 255, 0.52);
           }
+          .power-station-tile__battery {
+              display: flex;
+              align-items: center;
+              gap: 5px;
+              width: 100%;
+          }
+          .power-station-tile__battery-bar {
+              display: inline-block;
+              position: relative;
+              width: 42px;
+              height: 7px;
+              border-radius: 999px;
+              background: rgba(255, 255, 255, 0.12);
+              border: 1px solid rgba(255, 255, 255, 0.15);
+              overflow: hidden;
+              vertical-align: middle;
+          }
+          .power-station-tile__battery-fill {
+              position: absolute;
+              inset: 0 auto 0 0;
+              border-radius: inherit;
+              background: linear-gradient(90deg, #22c55e 0%, #4ade80 100%);
+              box-shadow: 0 0 8px rgba(74, 222, 128, 0.7);
+          }
           .power-station-tile__battery-value {
               font-weight: 800;
               color: rgba(255, 255, 255, 0.9);
+              white-space: nowrap;
           }
           .power-station-tile__summary,
           .power-station-tile__meta {
