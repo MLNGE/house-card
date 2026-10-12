@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.37.6
+ * @version 1.37.7
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1281,11 +1281,22 @@ class HouseCard extends HTMLElement {
     }
 
     _getPowerStationTitle(data, fallback = 'Power Station') {
+        const inputState = this._getPowerStationState(data?.entities?.total_input_power)
+            || this._getPowerStationState(data?.entities?.ac_input_power)
+            || this._getPowerStationState(data?.entities?.dc_input_power);
+        const outputState = this._getPowerStationState(data?.entities?.total_output_power)
+            || this._getPowerStationState(data?.entities?.ac_output_power)
+            || this._getPowerStationState(data?.entities?.dc_car_output_power);
+
+        const inputValue = Number(String(inputState?.state || '').replace(/[^\d.-]/g, ''));
+        const outputValue = Number(String(outputState?.state || '').replace(/[^\d.-]/g, ''));
+
+        if (Number.isFinite(inputValue) && inputValue > 0) return 'Charging';
+        if (Number.isFinite(outputValue) && outputValue > 0) return 'Discharging';
+
         const entityIds = new Set(
             [...Object.values(data?.entities || {}).filter(Boolean), ...(data?.deviceId ? this._getPowerStationDeviceEntityIds(data.deviceId) : [])]
         );
-        let isCharging = false;
-        let isDischarging = false;
 
         for (const entityId of entityIds) {
             const state = this._getPowerStationState(entityId);
@@ -1293,18 +1304,11 @@ class HouseCard extends HTMLElement {
 
             const entityName = String(entityId).split('.').slice(1).join('.').toLowerCase();
             const stateValue = String(state.state || '').toLowerCase();
-            const isBooleanOn = ['on', 'true', '1', 'yes'].includes(stateValue);
 
-            if (entityName.includes('charging') || stateValue === 'charging') isCharging = true;
-            if (entityName.includes('discharging') || stateValue === 'discharging') isDischarging = true;
-            if (entityName.includes('charge') && isBooleanOn) isCharging = true;
-            if (entityName.includes('discharge') && isBooleanOn) isDischarging = true;
-
-            if (isCharging && isDischarging) break;
+            if (entityName.includes('discharging') || stateValue === 'discharging') return 'Discharging';
+            if (entityName.includes('charging') || stateValue === 'charging') return 'Charging';
         }
 
-        if (isCharging) return 'Charging';
-        if (isDischarging) return 'Discharging';
         return data?.title || fallback;
     }
 
