@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.37.5
+ * @version 1.37.6
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1281,28 +1281,26 @@ class HouseCard extends HTMLElement {
     }
 
     _getPowerStationTitle(data, fallback = 'Power Station') {
-        const entityIds = Object.values(data?.entities || {}).filter(Boolean);
+        const entityIds = new Set(
+            [...Object.values(data?.entities || {}).filter(Boolean), ...(data?.deviceId ? this._getPowerStationDeviceEntityIds(data.deviceId) : [])]
+        );
         let isCharging = false;
         let isDischarging = false;
 
         for (const entityId of entityIds) {
             const state = this._getPowerStationState(entityId);
             if (!state) continue;
-            const key = String(entityId).toLowerCase();
+
+            const entityName = String(entityId).split('.').slice(1).join('.').toLowerCase();
             const stateValue = String(state.state || '').toLowerCase();
             const isBooleanOn = ['on', 'true', '1', 'yes'].includes(stateValue);
-            if (key.includes('charging') && isBooleanOn) {
-                isCharging = true;
-            }
-            if (key.includes('discharging') && isBooleanOn) {
-                isDischarging = true;
-            }
-            if (stateValue === 'charging') {
-                isCharging = true;
-            }
-            if (stateValue === 'discharging') {
-                isDischarging = true;
-            }
+
+            if (entityName.includes('charging') || stateValue === 'charging') isCharging = true;
+            if (entityName.includes('discharging') || stateValue === 'discharging') isDischarging = true;
+            if (entityName.includes('charge') && isBooleanOn) isCharging = true;
+            if (entityName.includes('discharge') && isBooleanOn) isDischarging = true;
+
+            if (isCharging && isDischarging) break;
         }
 
         if (isCharging) return 'Charging';
@@ -2640,7 +2638,7 @@ class HouseCard extends HTMLElement {
           .power-station-tile__value {
               min-width: 0;
               font-variant-numeric: tabular-nums;
-              font-weight: 700;
+              font-weight: 600;
               color: #ffffff;
           }
           .power-station-tile__value--input {
@@ -2652,7 +2650,7 @@ class HouseCard extends HTMLElement {
           .power-station-tile__unit {
               color: #ffffff;
               font-size: 0.58rem;
-              font-weight: 700;
+              font-weight: 600;
           }
           .power-station-tile--empty {
               justify-content: space-between;
