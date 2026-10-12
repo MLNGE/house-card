@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.36.2
+ * @version 1.36.3
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1251,19 +1251,22 @@ class HouseCard extends HTMLElement {
         if (!state) return fallback;
         const raw = state.state;
         if (raw === undefined || raw === null || raw === 'unknown' || raw === 'unavailable') return fallback;
-        const numeric = Number(raw);
+
+        const rawText = String(raw).trim().replace(/,/g, '').toLowerCase();
+        const numericMatch = rawText.match(/-?\d*\.?\d+/);
+        const numeric = numericMatch ? Number(numericMatch[0]) : Number(raw);
         if (!Number.isFinite(numeric)) return this._formatPowerStationValue(state, fallback);
 
         const unit = state.attributes?.unit_of_measurement || '';
         const normalizedUnit = String(unit).toLowerCase();
-        const isHoursUnit = normalizedUnit === 'h' || normalizedUnit === 'hr' || normalizedUnit === 'hrs' || normalizedUnit === 'hour' || normalizedUnit === 'hours';
-        const isMinutesUnit = normalizedUnit === 'min' || normalizedUnit === 'mins' || normalizedUnit === 'minute' || normalizedUnit === 'minutes';
+        const rawHasHourUnit = /\b(h|hr|hrs|hour|hours)\b/.test(rawText) || normalizedUnit === 'h' || normalizedUnit === 'hr' || normalizedUnit === 'hrs' || normalizedUnit === 'hour' || normalizedUnit === 'hours';
+        const rawHasMinuteUnit = /\b(m|min|mins|minute|minutes)\b/.test(rawText) || normalizedUnit === 'm' || normalizedUnit === 'min' || normalizedUnit === 'mins' || normalizedUnit === 'minute' || normalizedUnit === 'minutes';
 
-        if (isHoursUnit) {
+        if (rawHasHourUnit) {
             return `${numeric.toFixed(numeric % 1 === 0 ? 0 : 1)} hrs`;
         }
 
-        if (isMinutesUnit || numeric <= 99) {
+        if (rawHasMinuteUnit || numeric <= 99) {
             return `${Math.round(numeric)} min`;
         }
 
