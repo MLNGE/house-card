@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.37.0
+ * @version 1.37.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1394,9 +1394,7 @@ class HouseCard extends HTMLElement {
         container.innerHTML = `
           <div class="power-station-tile" data-entity="${entityId}" data-device-id="${data.deviceId || ''}" style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%">
             <div class="power-station-tile__header">
-              <span class="power-station-tile__battery-icon" aria-hidden="true">
-                <span class="power-station-tile__battery-icon-fill" style="height: ${batteryPercent}%"></span>
-              </span>
+              <ha-icon icon="mdi:battery"></ha-icon>
               <div class="power-station-tile__title-wrap">
                 <div class="power-station-tile__title">${data.title}</div>
                 <div class="power-station-tile__subtitle">
@@ -2535,38 +2533,11 @@ class HouseCard extends HTMLElement {
               align-items: center;
               gap: 6px;
           }
-          .power-station-tile__battery-icon {
-              position: relative;
-              display: inline-flex;
-              align-items: flex-end;
-              justify-content: center;
-              width: 18px;
-              height: 10px;
-              border: 1.5px solid #4ade80;
-              border-radius: 3px;
-              background: rgba(74, 222, 128, 0.08);
-              box-shadow: 0 0 6px rgba(74, 222, 128, 0.25);
+          .power-station-tile__header ha-icon {
+              --mdc-icon-size: 16px;
+              color: #4ade80;
               flex: 0 0 auto;
-          }
-          .power-station-tile__battery-icon::after {
-              content: "";
-              position: absolute;
-              right: -4px;
-              top: 2px;
-              width: 2px;
-              height: 4px;
-              border-radius: 1px;
-              background: #4ade80;
-          }
-          .power-station-tile__battery-icon-fill {
-              position: absolute;
-              left: 2px;
-              right: 2px;
-              bottom: 2px;
-              height: 50%;
-              border-radius: 2px 2px 0 0;
-              background: linear-gradient(180deg, #86efac 0%, #22c55e 100%);
-              box-shadow: inset 0 0 4px rgba(255,255,255,0.35);
+              filter: drop-shadow(0 0 3px rgba(74, 222, 128, 0.45));
           }
           .power-station-tile__title-wrap {
               display: flex;
