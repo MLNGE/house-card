@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.38.0
+ * @version 1.38.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1291,9 +1291,12 @@ class HouseCard extends HTMLElement {
         const inputValue = Number(String(inputState?.state || '').replace(/[^\d.-]/g, ''));
         const outputValue = Number(String(outputState?.state || '').replace(/[^\d.-]/g, ''));
 
-        if (Number.isFinite(inputValue) && inputValue > 0) return 'Charging';
-        if (Number.isFinite(outputValue) && outputValue > 0) return 'Discharging';
-        if (inputValue === 0 && outputValue === 0) return data?.title || fallback;
+        if (Number.isFinite(inputValue) && Number.isFinite(outputValue)) {
+            if (inputValue > outputValue) return 'Charging';
+            if (outputValue > inputValue) return 'Discharging';
+            if (inputValue === 0 && outputValue === 0) return 'Idle';
+            if (inputValue === outputValue) return 'Idle';
+        }
 
         const entityIds = new Set(
             [...Object.values(data?.entities || {}).filter(Boolean), ...(data?.deviceId ? this._getPowerStationDeviceEntityIds(data.deviceId) : [])]
@@ -1336,7 +1339,7 @@ class HouseCard extends HTMLElement {
                 remaining: this._formatPowerStationRemainingValue(this._getPowerStationState(resolved.entities.remaining_time)),
                 temperature: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.temperature))
             },
-            hasData: stats.some((item) => item.state && item.state.state !== 'unknown' && item.state.state !== 'unavailable')
+            hasData: stats.some((item) => item.state && item.state.state !== 'unknown' && item.state.state !== 'unavailable' && item.state.state !== 'offline')
         };
     }
 
@@ -1401,21 +1404,7 @@ class HouseCard extends HTMLElement {
         this._lastPowerStationPos = posHash;
 
                 if (!data.hasData) {
-                        container.innerHTML = `
-                            <div class="power-station-tile power-station-tile--empty" data-entity="${entityId}" data-device-id="${data.deviceId || ''}" style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%">
-                                <div class="power-station-tile__header">
-                                    <ha-icon icon="mdi:power-socket-off"></ha-icon>
-                                    <div class="power-station-tile__title-wrap">
-                                        <div class="power-station-tile__title">${data.title}</div>
-                                        <div class="power-station-tile__subtitle">No data</div>
-                                    </div>
-                                </div>
-                                <div class="power-station-tile__empty-state">
-                                    Select a device with available entities.
-                                </div>
-                            </div>`;
-
-                        this._attachPowerStationHandlers(container);
+                        container.innerHTML = '';
                         return;
                 }
 
