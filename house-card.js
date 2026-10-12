@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.37.2
+ * @version 1.37.3
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2609,6 +2609,8 @@ class HouseCard extends HTMLElement {
           .power-station-tile__value {
               min-width: 0;
               font-variant-numeric: tabular-nums;
+              font-weight: 800;
+              color: #ffffff;
           }
           .power-station-tile__value--input {
               color: #4ade80;
@@ -2617,8 +2619,9 @@ class HouseCard extends HTMLElement {
               color: #f87171;
           }
           .power-station-tile__unit {
-              color: rgba(255, 255, 255, 0.75);
+              color: #ffffff;
               font-size: 0.58rem;
+              font-weight: 800;
           }
           .power-station-tile--empty {
               justify-content: space-between;
