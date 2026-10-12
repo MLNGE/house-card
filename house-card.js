@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.36.1
+ * @version 1.36.2
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1247,6 +1247,36 @@ class HouseCard extends HTMLElement {
         return `${raw}${state.attributes?.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : ''}`.trim();
     }
 
+    _formatPowerStationRemainingValue(state, fallback = '—') {
+        if (!state) return fallback;
+        const raw = state.state;
+        if (raw === undefined || raw === null || raw === 'unknown' || raw === 'unavailable') return fallback;
+        const numeric = Number(raw);
+        if (!Number.isFinite(numeric)) return this._formatPowerStationValue(state, fallback);
+
+        const unit = state.attributes?.unit_of_measurement || '';
+        const normalizedUnit = String(unit).toLowerCase();
+        const isHoursUnit = normalizedUnit === 'h' || normalizedUnit === 'hr' || normalizedUnit === 'hrs' || normalizedUnit === 'hour' || normalizedUnit === 'hours';
+        const isMinutesUnit = normalizedUnit === 'min' || normalizedUnit === 'mins' || normalizedUnit === 'minute' || normalizedUnit === 'minutes';
+
+        if (isHoursUnit) {
+            return `${numeric.toFixed(numeric % 1 === 0 ? 0 : 1)} hrs`;
+        }
+
+        if (isMinutesUnit || numeric <= 99) {
+            return `${Math.round(numeric)} min`;
+        }
+
+        const hours = numeric / 60;
+        return `${hours.toFixed(hours % 1 === 0 ? 0 : 1)} hrs`;
+    }
+
+    _formatPowerStationSummaryValue(value, fallback = '—') {
+        if (!value || value === fallback) return fallback;
+        const match = String(value).match(/-?\d*\.?\d+/);
+        return match ? match[0] : value;
+    }
+
     _buildPowerStationStats() {
         const resolved = this._resolvePowerStationEntityMap();
         const stats = POWER_STATION_SUFFIXES.map((item) => {
@@ -1267,7 +1297,7 @@ class HouseCard extends HTMLElement {
                 battery: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.battery)),
                 input: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.total_input_power)),
                 output: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.total_output_power)),
-                remaining: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.remaining_time)),
+                remaining: this._formatPowerStationRemainingValue(this._getPowerStationState(resolved.entities.remaining_time)),
                 temperature: this._formatPowerStationValue(this._getPowerStationState(resolved.entities.temperature))
             },
             hasData: stats.some((item) => item.state && item.state.state !== 'unknown' && item.state.state !== 'unavailable')
@@ -1353,6 +1383,9 @@ class HouseCard extends HTMLElement {
                         return;
                 }
 
+        const inputSummary = this._formatPowerStationSummaryValue(data.summary.input);
+        const outputSummary = this._formatPowerStationSummaryValue(data.summary.output);
+
         container.innerHTML = `
           <div class="power-station-tile" data-entity="${entityId}" data-device-id="${data.deviceId || ''}" style="top: ${y}%; left: ${x}%; width: ${width}%; height: ${height}%">
             <div class="power-station-tile__header">
@@ -1363,13 +1396,13 @@ class HouseCard extends HTMLElement {
               </div>
             </div>
                         <div class="power-station-tile__summary">
-                            <span>Bat ${data.summary.battery}</span>
-                            <span class="power-station-tile__divider">|</span>
-                            <span>In ${data.summary.input}</span>
-                            <span class="power-station-tile__divider">|</span>
-                            <span>Out ${data.summary.output}</span>
+                            <span class="power-station-tile__value power-station-tile__value--input">${inputSummary}</span>
+                            <span class="power-station-tile__divider">/</span>
+                            <span class="power-station-tile__value power-station-tile__value--output">${outputSummary}</span>
+                            <span class="power-station-tile__unit">W</span>
                         </div>
                         <div class="power-station-tile__meta">
+                            <span>Bat ${data.summary.battery}</span>
                             <span>Remain ${data.summary.remaining}</span>
                             <span>Temp ${data.summary.temperature}</span>
             </div>
@@ -2522,6 +2555,24 @@ class HouseCard extends HTMLElement {
               line-height: 1.1;
               color: rgba(255, 255, 255, 0.9);
           }
+          .power-station-tile__summary {
+              font-size: 0.7rem;
+              font-weight: 700;
+          }
+          .power-station-tile__value {
+              min-width: 0;
+              font-variant-numeric: tabular-nums;
+          }
+          .power-station-tile__value--input {
+              color: #4ade80;
+          }
+          .power-station-tile__value--output {
+              color: #f87171;
+          }
+          .power-station-tile__unit {
+              color: rgba(255, 255, 255, 0.75);
+              font-size: 0.58rem;
+          }
           .power-station-tile--empty {
               justify-content: space-between;
           }
@@ -2536,6 +2587,7 @@ class HouseCard extends HTMLElement {
           }
           .power-station-tile__divider {
               opacity: 0.5;
+              color: rgba(255, 255, 255, 0.8);
           }
         </style>
         
