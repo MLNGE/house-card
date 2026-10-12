@@ -16,7 +16,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.36.3
+ * @version 1.36.4
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1260,18 +1260,18 @@ class HouseCard extends HTMLElement {
         const unit = state.attributes?.unit_of_measurement || '';
         const normalizedUnit = String(unit).toLowerCase();
         const rawHasHourUnit = /\b(h|hr|hrs|hour|hours)\b/.test(rawText) || normalizedUnit === 'h' || normalizedUnit === 'hr' || normalizedUnit === 'hrs' || normalizedUnit === 'hour' || normalizedUnit === 'hours';
-        const rawHasMinuteUnit = /\b(m|min|mins|minute|minutes)\b/.test(rawText) || normalizedUnit === 'm' || normalizedUnit === 'min' || normalizedUnit === 'mins' || normalizedUnit === 'minute' || normalizedUnit === 'minutes';
 
         if (rawHasHourUnit) {
-            return `${numeric.toFixed(numeric % 1 === 0 ? 0 : 1)} hrs`;
+            return `${numeric.toFixed(numeric % 1 === 0 ? 0 : 1)} hr`;
         }
 
-        if (rawHasMinuteUnit || numeric <= 99) {
-            return `${Math.round(numeric)} min`;
+        if (numeric > 99) {
+            const hours = numeric / 60;
+            const hourLabel = hours === 1 ? 'hr' : 'hrs';
+            return `${hours.toFixed(hours % 1 === 0 ? 0 : 1)} ${hourLabel}`;
         }
 
-        const hours = numeric / 60;
-        return `${hours.toFixed(hours % 1 === 0 ? 0 : 1)} hrs`;
+        return `${Math.round(numeric)} min`;
     }
 
     _formatPowerStationSummaryValue(value, fallback = '—') {
@@ -1395,7 +1395,9 @@ class HouseCard extends HTMLElement {
               <ha-icon icon="mdi:power-socket"></ha-icon>
               <div class="power-station-tile__title-wrap">
                 <div class="power-station-tile__title">${data.title}</div>
-                <div class="power-station-tile__subtitle">Power Station</div>
+                <div class="power-station-tile__subtitle">
+                  <span class="power-station-tile__battery-value">${data.summary.battery}</span>
+                </div>
               </div>
             </div>
                         <div class="power-station-tile__summary">
@@ -1405,7 +1407,6 @@ class HouseCard extends HTMLElement {
                             <span class="power-station-tile__unit">W</span>
                         </div>
                         <div class="power-station-tile__meta">
-                            <span>Bat ${data.summary.battery}</span>
                             <span>Remain ${data.summary.remaining}</span>
                             <span>Temp ${data.summary.temperature}</span>
             </div>
@@ -2547,6 +2548,10 @@ class HouseCard extends HTMLElement {
               text-transform: uppercase;
               letter-spacing: 0.08em;
               color: rgba(255, 255, 255, 0.52);
+          }
+          .power-station-tile__battery-value {
+              font-weight: 800;
+              color: rgba(255, 255, 255, 0.9);
           }
           .power-station-tile__summary,
           .power-station-tile__meta {
