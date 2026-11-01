@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.38.4
+ * @version 1.38.5
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -3360,10 +3360,10 @@ class HouseCountdownPresets extends HTMLElement {
     _setCountdown(seconds) {
         if (!this._hass) return;
         const { countdown_entity: countdownEntity, switch_entity: switchEntity } = this._config;
-        this._hass.callService('number', 'set_value', { value: seconds }, { entity_id: countdownEntity });
         if (this._hass.states[switchEntity]?.state !== 'on') {
             this._hass.callService('switch', 'turn_on', {}, { entity_id: switchEntity });
         }
+        this._hass.callService('number', 'set_value', { value: seconds }, { entity_id: countdownEntity });
     }
 }
 
