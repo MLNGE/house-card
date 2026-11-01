@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.38.2
+ * @version 1.38.3
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1072,16 +1072,20 @@ class HouseCard extends HTMLElement {
                 type: 'grid',
                 columns: 3,
                 square: false,
-                cards: [15, 30, 45].map((minutes) => ({
+                cards: [
+                    { label: 15, seconds: 900 },
+                    { label: 30, seconds: 1800 },
+                    { label: 45, seconds: 2700 }
+                ].map(({ label, seconds }) => ({
                     type: 'button',
-                    name: `+${minutes} min`,
+                    name: `+${label} min`,
                     icon: 'mdi:timer-plus-outline',
                     tap_action: {
                         action: 'call-service',
                         service: 'number.set_value',
                         service_data: {
                             entity_id: countdownEntity,
-                            value: minutes
+                            value: seconds
                         }
                     }
                 }))
