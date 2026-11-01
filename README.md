@@ -20,6 +20,7 @@ This isn't just a sensor display — it's a **living visualization** that respon
 | 💡 **Interactive Lights** | Click windows to toggle lights with realistic glow effects |
 | 🔗 **Navigation Hotspots** | Clickable areas to navigate between HA views |
 | 🔋 **Power Station Tile** | Live stats tile with long-press menu to toggle AC/USB output switches |
+| ⏱️ **Quick Countdown Presets** | Long-press a switch to set its countdown to 15, 30, or 45 minutes |
 
 ## Features
 
@@ -37,6 +38,7 @@ This isn't just a sensor display — it's a **living visualization** that respon
 - 🖼️ **Seasonal Images** - Automatic day/night and seasonal background changes
 - 🎄 **Christmas Mode** - Special images from Dec 14 - Jan 14
 - 🔋 **Power Station Tile** - Live stats overlay with long-press context menu to toggle AC output and USB output switches
+- ⏱️ **Quick Countdown Presets** - Set a switch countdown to 15, 30, or 45 minutes with one tap
 
 ## Required Integrations
 

@@ -11,12 +11,13 @@
  * * FEAT: Dynamic sky gradients with smooth sunrise/sunset transitions.
  * * FEAT: Badge icon flip (individual per badge).
  * * FEAT: Long-press window lights for bubble card popup with brightness & timer controls.
+ * * FEAT: Quick 15, 30, and 45 minute countdown presets for switches.
  * * FEAT: Aurora borealis animation triggered by NOAA aurora visibility sensor.
  * * FIX: Moon phase now renders actual illumination percentage.
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.38.1
+ * @version 1.38.2
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1066,6 +1067,24 @@ class HouseCard extends HTMLElement {
                     }
                 ],
                 show_header_toggle: false
+            });
+            cards.push({
+                type: 'grid',
+                columns: 3,
+                square: false,
+                cards: [15, 30, 45].map((minutes) => ({
+                    type: 'button',
+                    name: `+${minutes} min`,
+                    icon: 'mdi:timer-plus-outline',
+                    tap_action: {
+                        action: 'call-service',
+                        service: 'number.set_value',
+                        service_data: {
+                            entity_id: countdownEntity,
+                            value: minutes
+                        }
+                    }
+                }))
             });
         }
         
