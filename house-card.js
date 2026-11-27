@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.40.6
+ * @version 1.40.7
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -631,6 +631,7 @@ class HouseCard extends HTMLElement {
                 box-shadow: 0 4px 12px rgba(0,0,0,0.5);
                 backdrop-filter: blur(10px);
                 min-width: 150px;
+                max-height: calc(100vh - 16px); overflow-y: auto; box-sizing: border-box;
                 animation: hcMenuFadeIn 0.15s ease-out;
                 pointer-events: auto;
             }
@@ -837,11 +838,9 @@ class HouseCard extends HTMLElement {
         document.body.appendChild(menu);
         const menuH = menu.offsetHeight;
         const spaceBelow = window.innerHeight - rect.bottom;
-        const top = spaceBelow >= menuH || spaceBelow >= rect.top
-            ? rect.bottom + window.scrollY
-            : rect.top + window.scrollY - menuH;
+        const top = spaceBelow >= menuH ? rect.bottom : Math.max(8, rect.top - menuH);
         menu.style.top  = `${top}px`;
-        menu.style.left = `${Math.max(window.scrollX + 8, Math.min(rect.left + window.scrollX, window.scrollX + window.innerWidth - menu.offsetWidth - 8))}px`;
+        menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - menu.offsetWidth - 8))}px`;
         
         // Handle menu item selection
         const selectMenuItem = (item) => {
@@ -1737,11 +1736,9 @@ class HouseCard extends HTMLElement {
         document.body.appendChild(menu);
         const menuH = menu.offsetHeight;
         const spaceBelow = window.innerHeight - rect.bottom;
-        const top = spaceBelow >= menuH || spaceBelow >= rect.top
-            ? rect.bottom + window.scrollY
-            : rect.top + window.scrollY - menuH;
+        const top = spaceBelow >= menuH ? rect.bottom : Math.max(8, rect.top - menuH);
         menu.style.top  = `${top}px`;
-        menu.style.left = `${rect.left + window.scrollX}px`;
+        menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - menu.offsetWidth - 8))}px`;
 
         const handleMenuClick = (e) => {
             e.stopPropagation();

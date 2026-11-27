@@ -322,6 +322,9 @@ Examples:
 
 ## Changelog
 
+### v1.40.7
+- Fix long-press menus opening at incorrect positions on scrolled pages
+
 ### v1.40.6
 - Hide the dehumidifier fan indicator while the device is off
 
