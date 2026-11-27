@@ -194,7 +194,7 @@ wind_direction_entity: sensor.wind_bearing  # Wind Bearing (degrees)
 # unit: Custom unit string (default: "°"). Set to "W" for Power (Yellow Spark icon).
 # decimals: Number of decimal places (default: 1). Set to 0 for integers.
 # humidity_entity: Optional second value to display next to main value (e.g. "21° | 45%")
-# dehumidifier_entity: Optional switch.* or humidifier.* entity; ON shows device stats beneath its long-press control, linked to the HA device page
+# dehumidifier_entity: Optional switch.* or humidifier.* entity; shows a compact ON/OFF badge indicator without enlarging the room badge
 # flip_icon: true = Icon/dot on right side, text left-aligned (default: false = icon on left)
 # weight: 1 = Include in calculation, 0 = Exclude
 rooms:
@@ -321,6 +321,9 @@ Examples:
 - `winter_xmas_night.png`
 
 ## Changelog
+
+### v1.40.0
+- Add a compact live on/off indicator to room badges with a configured dehumidifier
 
 ### v1.39.0
 - Add optional room-level dehumidifier controls for switch and humidifier entities

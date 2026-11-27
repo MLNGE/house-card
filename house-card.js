@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.39.5
+ * @version 1.40.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -402,7 +402,10 @@ class HouseCard extends HTMLElement {
             const cState = this._hass.states[r.co2_entity];
             if (cState && !isNaN(parseFloat(cState.state))) co2 = Math.round(parseFloat(cState.state));
         }
-        return { ...r, value: v, humidity: hum, co2: co2, valid: !isNaN(v) };
+        const dehumidifierState = r.dehumidifier_entity
+            ? this._hass.states[r.dehumidifier_entity]?.state || null
+            : null;
+        return { ...r, value: v, humidity: hum, co2: co2, dehumidifier_state: dehumidifierState, valid: !isNaN(v) };
       });
       
       this._updateBadges(roomsData);
@@ -430,7 +433,7 @@ class HouseCard extends HTMLElement {
       
       // Throttle: Create a hash of current badge data to detect changes
       const badgeDataHash = rooms.map(r => 
-        `${r.entity}:${r.value}:${r.humidity}:${r.co2}:${r.x}:${r.y}`
+        `${r.entity}:${r.value}:${r.humidity}:${r.co2}:${r.x}:${r.y}:${r.dehumidifier_entity}:${r.dehumidifier_state}`
       ).join('|');
       
       // Skip update if data hasn't changed (throttle DOM updates)
@@ -483,9 +486,18 @@ class HouseCard extends HTMLElement {
         }
 
         const flipClass = room.flip_icon ? 'flip-icon' : '';
+        const dehumidifierStatus = room.dehumidifier_state === 'on'
+            ? 'on'
+            : room.dehumidifier_state === 'off'
+                ? 'off'
+                : 'unavailable';
+        const dehumidifierIndicator = room.dehumidifier_entity
+            ? `<span class="dehumidifier-indicator dehumidifier-indicator--${dehumidifierStatus}" role="img" aria-label="Dehumidifier ${dehumidifierStatus}" title="Dehumidifier ${dehumidifierStatus}"></span>`
+            : '';
         return `
           <div class="badge ${colorClass} ${flipClass}" data-index="${index}" data-entity="${room.entity}" style="top: ${top}%; left: ${left}%;">
             ${visualHtml}
+            ${dehumidifierIndicator}
             <div class="badge-content">
               <span class="badge-name">${room.name}</span>
               <span class="badge-val">${finalValueString}</span>
@@ -2659,6 +2671,15 @@ class HouseCard extends HTMLElement {
           .is-optimal .badge-dot { background: var(--color-opt); box-shadow: 0 0 5px var(--color-opt); }
           .is-warm .badge-dot { background: var(--color-warm); box-shadow: 0 0 5px var(--color-warm); }
           .is-hot .badge-dot { background: var(--color-hot); box-shadow: 0 0 5px var(--color-hot); }
+          .dehumidifier-indicator {
+              position: absolute; top: calc(50% + 2px); left: 17px; z-index: 1;
+              width: 7px; height: 7px; box-sizing: border-box; border: 1px solid rgba(20,20,25,0.95);
+              border-radius: 50%; box-shadow: 0 0 0 1px rgba(255,255,255,0.55); pointer-events: none;
+          }
+          .flip-icon .dehumidifier-indicator { left: auto; right: 17px; }
+          .dehumidifier-indicator--on { background: #4CAF50; }
+          .dehumidifier-indicator--off { background: #9E9E9E; }
+          .dehumidifier-indicator--unavailable { background: #FFB74D; }
           
           /* SPARK ICON STYLE */
           .spark-icon {
