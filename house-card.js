@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.40.4
+ * @version 1.40.5
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -3609,12 +3609,75 @@ const EDITOR_SCHEMA = [
     { name: "decorations", selector: { object: {} } }
 ];
 
+const EDITOR_LABELS = {
+    title: "Title (Optional)",
+    language: "Language",
+    image_path: "Background Image Path",
+    scale: "Badge Scale",
+    background_zoom: "Background Zoom",
+    badge_opacity: "Badge Opacity",
+    image_x_offset: "Background X Offset",
+    image_y_offset: "Background Y Offset",
+    weather_entity: "Weather Entity",
+    season_entity: "Season Entity",
+    sun_entity: "Sun Entity",
+    aurora_entity: "Aurora Binary Sensor",
+    power_station_device_id: "Power Station Device",
+    oukitel_integration_id: "Oukitel Integration Entry ID",
+    moon_glow: "Moon Glow",
+    sun_glow: "Sun Glow",
+    sun_rays: "Sun Rays",
+    sky_gradient: "Sky Gradients",
+    shooting_stars: "Shooting Stars",
+    seasonal_particles: "Seasonal Particles",
+    window_lights_debug: "Debug Window Lights",
+    nav_links_debug: "Debug Nav Links",
+    decorations_debug: "Debug Decorations",
+    rooms: "Rooms (YAML)",
+    window_lights: "Window Lights (YAML)",
+    nav_links: "Navigation Links (YAML)",
+    decorations: "Decorations (YAML)"
+};
+
+const EDITOR_GROUPS = [
+    {
+        title: "Appearance",
+        description: "Choose the background and tune the card's scale and positioning.",
+        expanded: true,
+        fields: ["title", "language", "image_path", "scale", "background_zoom", "badge_opacity", "image_x_offset", "image_y_offset"]
+    },
+    {
+        title: "Weather & Integrations",
+        description: "Connect the entities and devices that power the card.",
+        fields: ["weather_entity", "season_entity", "sun_entity", "aurora_entity", "power_station_device_id", "oukitel_integration_id"]
+    },
+    {
+        title: "Visual Effects",
+        description: "Enable or disable ambient effects shown on the card.",
+        fields: ["moon_glow", "sun_glow", "sun_rays", "sky_gradient", "shooting_stars", "seasonal_particles"]
+    },
+    {
+        title: "Debug",
+        description: "Show layout guides while configuring interactive elements.",
+        fields: ["window_lights_debug", "nav_links_debug", "decorations_debug"]
+    }
+];
+
+const EDITOR_MAPPINGS = [
+    { name: "rooms", title: "Rooms" },
+    { name: "window_lights", title: "Window Lights" },
+    { name: "nav_links", title: "Navigation Links" },
+    { name: "decorations", title: "Decorations" }
+];
+
 class HouseCardEditor extends HTMLElement {
     constructor() {
         super();
         this.attachShadow({ mode: "open" });
         this._config = {};
         this._hass = null;
+        this._forms = [];
+        this._psSlidersContainer = null;
     }
 
     setConfig(config) {
@@ -3624,7 +3687,9 @@ class HouseCardEditor extends HTMLElement {
 
     set hass(hass) {
         this._hass = hass;
-        if (this._form) this._form.hass = hass;
+        this._forms.forEach((form) => {
+            form.hass = hass;
+        });
     }
 
     _dispatchConfig() {
@@ -3637,93 +3702,258 @@ class HouseCardEditor extends HTMLElement {
 
     _renderPsSliders() {
         const fields = [
-            { key: 'power_station_x',      label: 'Position X (%)',   min: 0,  max: 100, step: 1, def: 26 },
-            { key: 'power_station_y',      label: 'Position Y (%)',   min: 0,  max: 100, step: 1, def: 84 },
-            { key: 'power_station_width',  label: 'Width (%)',        min: 10, max: 100, step: 1, def: 34 },
-            { key: 'power_station_height', label: 'Height (%)',       min: 8,  max: 40,  step: 1, def: 18 },
+            { key: "power_station_x", label: "Position X (%)", min: 0, max: 100, step: 1, def: 26 },
+            { key: "power_station_y", label: "Position Y (%)", min: 0, max: 100, step: 1, def: 84 },
+            { key: "power_station_width", label: "Width (%)", min: 10, max: 100, step: 1, def: 34 },
+            { key: "power_station_height", label: "Height (%)", min: 8, max: 40, step: 1, def: 18 }
         ];
-        const container = this.shadowRoot.querySelector('.ps-sliders');
-        if (!container) return;
-        container.innerHTML = fields.map(f => {
-            const val = this._config[f.key] ?? f.def;
-            return `<div class="ps-row">
-                <label>${f.label}</label>
-                <input type="range" min="${f.min}" max="${f.max}" step="${f.step}" value="${val}" data-key="${f.key}">
-                <span class="ps-val">${val}</span>
-            </div>`;
-        }).join('');
-        container.querySelectorAll('input[type=range]').forEach(input => {
-            input.addEventListener('input', (e) => {
-                const span = e.target.nextElementSibling;
-                if (span) span.textContent = e.target.value;
+        if (!this._psSlidersContainer) return;
+
+        this._psSlidersContainer.replaceChildren();
+        fields.forEach((field) => {
+            const value = this._config[field.key] ?? field.def;
+            const row = document.createElement("div");
+            row.className = "ps-row";
+
+            const label = document.createElement("label");
+            label.htmlFor = `house-card-${field.key}`;
+            label.textContent = field.label;
+
+            const input = document.createElement("input");
+            input.id = label.htmlFor;
+            input.type = "range";
+            input.min = String(field.min);
+            input.max = String(field.max);
+            input.step = String(field.step);
+            input.value = String(value);
+            input.dataset.key = field.key;
+
+            const output = document.createElement("output");
+            output.htmlFor = input.id;
+            output.className = "ps-val";
+            output.textContent = String(value);
+
+            input.addEventListener("input", () => {
+                output.value = input.value;
+                output.textContent = input.value;
             });
-            input.addEventListener('change', (e) => {
-                this._config = { ...this._config, [e.target.dataset.key]: Number(e.target.value) };
+            input.addEventListener("change", () => {
+                this._config = { ...this._config, [field.key]: Number(input.value) };
                 this._dispatchConfig();
             });
+
+            row.append(label, input, output);
+            this._psSlidersContainer.appendChild(row);
         });
     }
 
+    _getSchema(fields) {
+        const selected = new Set(fields);
+        return EDITOR_SCHEMA.reduce((schema, field) => {
+            if (field.type === "grid") {
+                const nestedSchema = field.schema.filter((nestedField) => selected.has(nestedField.name));
+                if (nestedSchema.length) schema.push({ ...field, name: "", schema: nestedSchema });
+            } else if (selected.has(field.name)) {
+                schema.push(field);
+            }
+            return schema;
+        }, []);
+    }
+
+    _createForm(schema) {
+        const form = document.createElement("ha-form");
+        form.schema = schema;
+        form.computeLabel = (field) => EDITOR_LABELS[field.name] || field.name;
+        form.addEventListener("value-changed", (event) => {
+            this._config = { ...this._config, ...event.detail.value };
+            this._dispatchConfig();
+        });
+        this._forms.push(form);
+        return form;
+    }
+
+    _createSection(title, description, expanded = false) {
+        const section = document.createElement("details");
+        section.className = "editor-section";
+        section.open = expanded;
+
+        const summary = document.createElement("summary");
+        summary.className = "section-summary";
+
+        const heading = document.createElement("span");
+        heading.className = "section-title";
+        heading.textContent = title;
+
+        const supportingText = document.createElement("span");
+        supportingText.className = "section-description";
+        supportingText.textContent = description;
+
+        summary.append(heading, supportingText);
+        section.appendChild(summary);
+
+        const content = document.createElement("div");
+        content.className = "section-content";
+        section.appendChild(content);
+
+        return { section, content };
+    }
+
+    _buildEditor() {
+        this.shadowRoot.innerHTML = `<style>
+            :host {
+                display: block;
+                color: var(--primary-text-color);
+            }
+            .editor-section {
+                border-bottom: 1px solid var(--divider-color, rgba(127, 127, 127, 0.28));
+            }
+            .editor-section:first-child {
+                border-top: 1px solid var(--divider-color, rgba(127, 127, 127, 0.28));
+            }
+            .section-summary {
+                cursor: pointer;
+                padding: 14px 12px;
+                border-radius: 4px;
+            }
+            .section-summary:hover {
+                background: var(--secondary-background-color, rgba(127, 127, 127, 0.08));
+            }
+            .section-summary:focus-visible,
+            .mapping-summary:focus-visible {
+                outline: 2px solid var(--primary-color, #03a9f4);
+                outline-offset: 2px;
+            }
+            .section-title {
+                font-weight: 600;
+            }
+            .section-description {
+                display: block;
+                margin: 3px 0 0 1.1em;
+                color: var(--secondary-text-color);
+                font-size: 0.9em;
+                line-height: 1.4;
+            }
+            .section-content {
+                padding: 0 12px 16px 28px;
+            }
+            .section-hint {
+                margin: 0 0 12px;
+                color: var(--secondary-text-color);
+                font-size: 0.9em;
+                line-height: 1.45;
+            }
+            .mapping-entry {
+                border-top: 1px solid var(--divider-color, rgba(127, 127, 127, 0.2));
+            }
+            .mapping-summary {
+                cursor: pointer;
+                padding: 12px 8px;
+                font-weight: 500;
+            }
+            .mapping-entry[open] > .mapping-summary {
+                padding-bottom: 4px;
+            }
+            .mapping-form {
+                padding: 0 8px 12px;
+            }
+            .ps-sliders {
+                padding-top: 4px;
+            }
+            .ps-row {
+                display: grid;
+                grid-template-columns: minmax(110px, 140px) minmax(80px, 1fr) 3.5em;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 12px;
+            }
+            .ps-row label,
+            .ps-val {
+                color: var(--primary-text-color);
+                font-size: 14px;
+            }
+            .ps-row input[type="range"] {
+                width: 100%;
+                min-width: 0;
+                accent-color: var(--primary-color);
+            }
+            .ps-val {
+                text-align: right;
+                font-variant-numeric: tabular-nums;
+            }
+            @media (max-width: 420px) {
+                .section-content {
+                    padding-left: 20px;
+                }
+                .ps-row {
+                    grid-template-columns: minmax(0, 1fr) 3.5em;
+                    gap: 6px 12px;
+                }
+                .ps-row label {
+                    grid-column: 1 / -1;
+                }
+            }
+        </style>`;
+
+        EDITOR_GROUPS.forEach((group) => {
+            if (group.title === "Debug") return;
+
+            const { section, content } = this._createSection(
+                group.title,
+                group.description,
+                group.expanded
+            );
+            content.appendChild(this._createForm(this._getSchema(group.fields)));
+            this.shadowRoot.appendChild(section);
+        });
+
+        const { section: mappingsSection, content: mappingsContent } = this._createSection(
+            "Rooms & Interactive Elements",
+            "Configure room badges, window lights, navigation links, and decorations."
+        );
+        const mappingHint = document.createElement("p");
+        mappingHint.className = "section-hint";
+        mappingHint.textContent = "Each mapping opens its own YAML editor. Existing and custom configuration keys are preserved.";
+        mappingsContent.appendChild(mappingHint);
+        EDITOR_MAPPINGS.forEach((mapping) => {
+            const entry = document.createElement("details");
+            entry.className = "mapping-entry";
+
+            const summary = document.createElement("summary");
+            summary.className = "mapping-summary";
+            summary.textContent = `${mapping.title} (YAML)`;
+            entry.appendChild(summary);
+
+            const form = this._createForm(this._getSchema([mapping.name]));
+            form.classList.add("mapping-form");
+            entry.appendChild(form);
+            mappingsContent.appendChild(entry);
+        });
+        this.shadowRoot.appendChild(mappingsSection);
+
+        const { section: powerStationSection, content: powerStationContent } = this._createSection(
+            "Power Station Tile",
+            "Set the tile's size and position on the background."
+        );
+        this._psSlidersContainer = document.createElement("div");
+        this._psSlidersContainer.className = "ps-sliders";
+        powerStationContent.appendChild(this._psSlidersContainer);
+        this.shadowRoot.appendChild(powerStationSection);
+
+        const debugGroup = EDITOR_GROUPS.find((group) => group.title === "Debug");
+        const { section: debugSection, content: debugContent } = this._createSection(
+            debugGroup.title,
+            debugGroup.description
+        );
+        debugContent.appendChild(this._createForm(this._getSchema(debugGroup.fields)));
+        this.shadowRoot.appendChild(debugSection);
+    }
+
     render() {
-        if (!this._form) {
-            this.shadowRoot.innerHTML = `<style>
-                .ps-section { border-top: 1px solid var(--divider-color, rgba(0,0,0,0.12)); margin-top: 8px; padding-top: 4px; }
-                .ps-section-title { padding: 12px 16px 4px; font-size: 13px; font-weight: 500; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.05em; }
-                .ps-sliders { padding: 4px 16px 8px; }
-                .ps-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-                .ps-row label { flex: 0 0 120px; font-size: 14px; color: var(--primary-text-color); }
-                .ps-row input[type=range] { flex: 1; }
-                .ps-val { flex: 0 0 28px; text-align: right; font-size: 14px; color: var(--secondary-text-color); }
-            </style>`;
-
-            this._form = document.createElement("ha-form");
-            this._form.schema = EDITOR_SCHEMA;
-            this._form.computeLabel = (s) => {
-                const labels = {
-                    title: "Title (Optional)",
-                    language: "Language",
-                    image_path: "Background Image Path",
-                    scale: "Badge Scale",
-                    background_zoom: "Background Zoom",
-                    badge_opacity: "Badge Opacity",
-                    image_x_offset: "Background X Offset",
-                    image_y_offset: "Background Y Offset",
-                    weather_entity: "Weather Entity",
-                    season_entity: "Season Entity",
-                    sun_entity: "Sun Entity",
-                    aurora_entity: "Aurora Binary Sensor",
-                    power_station_device_id: "Power Station Device",
-                    oukitel_integration_id: "Oukitel Integration Entry ID",
-                    moon_glow: "Moon Glow",
-                    sun_glow: "Sun Glow",
-                    sun_rays: "Sun Rays",
-                    sky_gradient: "Sky Gradients",
-                    shooting_stars: "Shooting Stars",
-                    seasonal_particles: "Seasonal Particles",
-                    window_lights_debug: "Debug Window Lights",
-                    nav_links_debug: "Debug Nav Links",
-                    decorations_debug: "Debug Decorations",
-                    rooms: "Rooms (YAML)",
-                    window_lights: "Window Lights (YAML)",
-                    nav_links: "Navigation Links (YAML)",
-                    decorations: "Decorations (YAML)"
-                };
-                return labels[s.name] || s.name;
-            };
-            this._form.addEventListener("value-changed", (ev) => {
-                // Preserve custom YAML keys not in the schema
-                this._config = { ...this._config, ...ev.detail.value };
-                this._dispatchConfig();
-            });
-            this.shadowRoot.appendChild(this._form);
-
-            const psSection = document.createElement('div');
-            psSection.className = 'ps-section';
-            psSection.innerHTML = '<div class="ps-section-title">Power Station Position</div><div class="ps-sliders"></div>';
-            this.shadowRoot.appendChild(psSection);
-        }
-        this._form.data = { ...this._config };
-        if (this._hass) this._form.hass = this._hass;
+        if (!this._psSlidersContainer) this._buildEditor();
+        this._forms.forEach((form) => {
+            form.data = { ...this._config };
+            if (this._hass) form.hass = this._hass;
+        });
         this._renderPsSliders();
     }
 }

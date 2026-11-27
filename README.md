@@ -87,7 +87,7 @@ If you enjoy this card and want to support its development, you can buy me a cof
 
 ## Configuration
 
-**New!** A Visual Editor is now available for the card. When adding this card via the Home Assistant UI, you can configure paths, entities, and settings using standard dropdowns and sliders. For complex fields (like `rooms`, `window_lights`, etc.), you can still use the embedded YAML editor within the settings UI!
+The visual editor groups settings into collapsible sections for appearance, weather and integrations, visual effects, room and interactive-element mappings, power-station positioning, and debugging. Common settings use Home Assistant controls; complex mappings such as `rooms`, `window_lights`, `nav_links`, and `decorations` remain available in individual YAML editors.
 
 ```yaml
 type: custom:house-card
@@ -321,6 +321,9 @@ Examples:
 - `winter_xmas_night.png`
 
 ## Changelog
+
+### v1.40.5
+- Organize the visual editor into collapsible sections and separate YAML mapping editors
 
 ### v1.40.4
 - Align the rotating dehumidifier fan over the room temperature indicator
