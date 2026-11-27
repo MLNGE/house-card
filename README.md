@@ -322,6 +322,12 @@ Examples:
 
 ## Changelog
 
+### v1.40.4
+- Align the rotating dehumidifier fan over the room temperature indicator
+
+### v1.40.3
+- Use a custom centered fan rotor to prevent visual wobble while spinning
+
 ### v1.40.2
 - Center the rotating dehumidifier fan icon to prevent wobble
 

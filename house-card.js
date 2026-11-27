@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.40.2
+ * @version 1.40.4
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -504,7 +504,7 @@ class HouseCard extends HTMLElement {
                 ? 'off'
                 : 'unavailable';
         const dehumidifierIndicator = room.dehumidifier_entity
-            ? `<span class="dehumidifier-indicator dehumidifier-indicator--${dehumidifierStatus}" role="img" aria-label="Dehumidifier ${dehumidifierStatus}" title="Dehumidifier ${dehumidifierStatus}"><ha-icon icon="mdi:fan"></ha-icon></span>`
+            ? `<span class="dehumidifier-indicator dehumidifier-indicator--${dehumidifierStatus}" role="img" aria-label="Dehumidifier ${dehumidifierStatus}" title="Dehumidifier ${dehumidifierStatus}"><svg class="dehumidifier-fan" viewBox="0 0 24 24" aria-hidden="true"><g class="dehumidifier-fan__rotor"><ellipse cx="12" cy="6.4" rx="2.4" ry="4.3"/><ellipse cx="12" cy="6.4" rx="2.4" ry="4.3" transform="rotate(120 12 12)"/><ellipse cx="12" cy="6.4" rx="2.4" ry="4.3" transform="rotate(240 12 12)"/><circle cx="12" cy="12" r="2"/></g></svg></span>`
             : '';
         return `
           <div class="badge ${colorClass} ${flipClass}" data-index="${index}" data-entity="${room.entity}" style="top: ${top}%; left: ${left}%;">
@@ -2684,25 +2684,23 @@ class HouseCard extends HTMLElement {
           .is-warm .badge-dot { background: var(--color-warm); box-shadow: 0 0 5px var(--color-warm); }
           .is-hot .badge-dot { background: var(--color-hot); box-shadow: 0 0 5px var(--color-hot); }
           .dehumidifier-indicator {
-              position: absolute; top: 50%; left: 14px; z-index: 1;
+              position: absolute; top: 50%; left: 10px; z-index: 1;
               display: grid; width: 12px; height: 12px; place-items: center;
               transform: translateY(-50%); pointer-events: none;
           }
-          .flip-icon .dehumidifier-indicator { left: auto; right: 14px; }
-          .dehumidifier-indicator ha-icon {
-              --mdc-icon-size: 12px; display: block; width: 12px; height: 12px;
-              transform-box: border-box; transform-origin: 50% 50%;
-          }
-          .dehumidifier-indicator--on ha-icon {
-              color: #81C784;
+          .flip-icon .dehumidifier-indicator { left: auto; right: 10px; }
+          .dehumidifier-fan { display: block; width: 11px; height: 11px; overflow: visible; }
+          .dehumidifier-indicator--on { color: #81C784; }
+          .dehumidifier-indicator--off { color: #9E9E9E; }
+          .dehumidifier-indicator--unavailable { color: #FFB74D; }
+          .dehumidifier-indicator--on .dehumidifier-fan__rotor {
+              transform-box: view-box; transform-origin: 50% 50%;
               animation: hcDehumidifierFanSpin 1s linear infinite paused;
           }
-          .badges-layer.dehumidifier-fan-visible .dehumidifier-indicator--on ha-icon { animation-play-state: running; }
-          .dehumidifier-indicator--off ha-icon { color: #9E9E9E; }
-          .dehumidifier-indicator--unavailable ha-icon { color: #FFB74D; }
+          .badges-layer.dehumidifier-fan-visible .dehumidifier-indicator--on .dehumidifier-fan__rotor { animation-play-state: running; }
           @keyframes hcDehumidifierFanSpin { to { transform: rotate(360deg); } }
           @media (prefers-reduced-motion: reduce) {
-              .dehumidifier-indicator--on ha-icon { animation: none; }
+              .dehumidifier-indicator--on .dehumidifier-fan__rotor { animation: none; }
           }
           
           /* SPARK ICON STYLE */
