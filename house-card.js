@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.39.0
+ * @version 1.39.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -660,12 +660,13 @@ class HouseCard extends HTMLElement {
         }
 
         const dehumidifierEntity = room.dehumidifier_entity;
-        const isDehumidifierSwitch = typeof dehumidifierEntity === 'string' && dehumidifierEntity.startsWith('switch.');
-        const dehumidifierState = isDehumidifierSwitch ? this._hass.states[dehumidifierEntity] : null;
+        const dehumidifierDomain = typeof dehumidifierEntity === 'string' ? dehumidifierEntity.split('.')[0] : null;
+        const isSupportedDehumidifier = dehumidifierDomain === 'switch' || dehumidifierDomain === 'humidifier';
+        const dehumidifierState = isSupportedDehumidifier ? this._hass.states[dehumidifierEntity] : null;
         const dehumidifierAvailable = dehumidifierState &&
             dehumidifierState.state !== 'unknown' &&
             dehumidifierState.state !== 'unavailable';
-        const dehumidifierStatus = !isDehumidifierSwitch
+        const dehumidifierStatus = !isSupportedDehumidifier
             ? 'INVALID'
             : !dehumidifierAvailable
                 ? 'UNAVAILABLE'
@@ -687,7 +688,7 @@ class HouseCard extends HTMLElement {
             </div>
         `).join('');
         const dehumidifierRow = dehumidifierEntity
-            ? `<div class="entity-menu-item entity-menu-item--switch" data-action="toggle-switch" data-entity="${dehumidifierEntity}"${dehumidifierAvailable ? '' : ' aria-disabled="true"'}>
+            ? `<div class="entity-menu-item entity-menu-item--switch" data-action="toggle-dehumidifier" data-entity="${dehumidifierEntity}"${dehumidifierAvailable ? '' : ' aria-disabled="true"'}>
                 <span class="switch-left"><ha-icon icon="mdi:air-humidifier"></ha-icon><span>Dehumidifier</span></span>
                 <span class="switch-badge switch-badge--${dehumidifierAvailable ? dehumidifierState.state : 'unavailable'}">${dehumidifierStatus}</span>
                </div>`
@@ -708,10 +709,11 @@ class HouseCard extends HTMLElement {
         const selectMenuItem = (item) => {
             const entityId = item.getAttribute('data-entity');
             if (entityId) {
-                if (item.dataset.action === 'toggle-switch') {
+                if (item.dataset.action === 'toggle-dehumidifier') {
+                    const domain = entityId.split('.')[0];
                     const state = this._hass.states[entityId];
-                    if (!entityId.startsWith('switch.') || !state || state.state === 'unknown' || state.state === 'unavailable') return;
-                    this._hass.callService('switch', 'toggle', {}, { entity_id: entityId });
+                    if ((domain !== 'switch' && domain !== 'humidifier') || !state || state.state === 'unknown' || state.state === 'unavailable') return;
+                    this._hass.callService(domain, 'toggle', {}, { entity_id: entityId });
                     menu.remove();
                     cleanup();
                     return;
