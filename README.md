@@ -322,6 +322,9 @@ Examples:
 
 ## Changelog
 
+### v1.40.8
+- Prevent power-station long presses from also opening the detail view
+
 ### v1.40.7
 - Fix long-press menus opening at incorrect positions on scrolled pages
 

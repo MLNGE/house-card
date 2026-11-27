@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.40.7
+ * @version 1.40.8
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1620,55 +1620,86 @@ class HouseCard extends HTMLElement {
     }
 
     _attachPowerStationHandlers(container) {
+        if (this._powerStationHandlersAttached) return;
+        this._powerStationHandlersAttached = true;
+
         let pressedTile = null;
+        let activePointerId = null;
         let startX = 0, startY = 0;
+        let pressMoved = false;
+        let longPressActive = false;
+        let longPressTimer = null;
         const MOVE_THRESHOLD = 10;
 
-        const handleStart = (e, isTouch) => {
+        const clearPress = () => {
+            if (longPressTimer) clearTimeout(longPressTimer);
+            longPressTimer = null;
+            pressedTile = null;
+            activePointerId = null;
+            pressMoved = false;
+            longPressActive = false;
+        };
+
+        const handleStart = (e) => {
+            if (!e.isPrimary || e.button !== 0) return;
             const tile = e.target.closest('.power-station-tile');
             if (!tile) return;
-            const touch = isTouch ? e.touches[0] : e;
+            clearPress();
             pressedTile = tile;
-            startX = touch.clientX;
-            startY = touch.clientY;
-            this._psLongPressActive = false;
-            if (this._psLongPressTimer) clearTimeout(this._psLongPressTimer);
-            this._psLongPressTimer = setTimeout(() => {
-                this._psLongPressActive = true;
+            activePointerId = e.pointerId;
+            startX = e.clientX;
+            startY = e.clientY;
+            tile.setPointerCapture(e.pointerId);
+            longPressTimer = setTimeout(() => {
+                longPressTimer = null;
+                if (pressedTile !== tile || activePointerId !== e.pointerId || pressMoved) return;
+                if (!tile.isConnected) {
+                    clearPress();
+                    return;
+                }
+                longPressActive = true;
                 const deviceId = tile.getAttribute('data-device-id') || null;
                 const entityId = tile.getAttribute('data-entity') || null;
                 this._showPowerStationMenu(tile, deviceId, entityId);
             }, 500);
         };
 
-        const handleMove = (e, isTouch) => {
-            if (!this._psLongPressTimer) return;
-            const touch = isTouch ? e.touches[0] : e;
-            if (Math.abs(touch.clientX - startX) > MOVE_THRESHOLD || Math.abs(touch.clientY - startY) > MOVE_THRESHOLD) {
-                clearTimeout(this._psLongPressTimer);
-                this._psLongPressTimer = null;
+        const handleMove = (e) => {
+            if (e.pointerId !== activePointerId) return;
+            if (Math.abs(e.clientX - startX) > MOVE_THRESHOLD || Math.abs(e.clientY - startY) > MOVE_THRESHOLD) {
+                pressMoved = true;
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
             }
         };
 
-        const handleEnd = (e, isTouch) => {
-            if (this._psLongPressTimer) { clearTimeout(this._psLongPressTimer); this._psLongPressTimer = null; }
-            // Long-press already showed the menu — don't also fire the tap action
-            if (this._psLongPressActive) { pressedTile = null; this._psLongPressActive = false; return; }
-            const tile = e.target.closest('.power-station-tile');
-            if (!tile || tile !== pressedTile) { pressedTile = null; return; }
-            pressedTile = null;
+        const handleEnd = (e) => {
+            if (e.pointerId !== activePointerId || !pressedTile) return;
+            const tile = pressedTile;
+            const rect = tile.getBoundingClientRect();
+            const releasedOnTile = e.clientX >= rect.left && e.clientX <= rect.right &&
+                e.clientY >= rect.top && e.clientY <= rect.bottom;
+            const shouldOpenDetails = !longPressActive && !pressMoved && releasedOnTile;
+            clearPress();
+            if (!shouldOpenDetails) return;
+
             e.stopPropagation();
             const deviceId = tile.getAttribute('data-device-id') || null;
             const entityId = tile.getAttribute('data-entity') || null;
             this._openPowerStationPopup(deviceId, entityId);
         };
 
-        container.addEventListener('mousedown',  (e) => handleStart(e, false));
-        container.addEventListener('mousemove',  (e) => handleMove(e, false));
-        container.addEventListener('mouseup',    (e) => handleEnd(e, false));
-        container.addEventListener('touchstart', (e) => handleStart(e, true), { passive: true });
-        container.addEventListener('touchmove',  (e) => handleMove(e, true),  { passive: true });
-        container.addEventListener('touchend',   (e) => handleEnd(e, true), { passive: true });
+        const handleCancel = (e) => {
+            if (e.pointerId === activePointerId) clearPress();
+        };
+
+        container.addEventListener('pointerdown', handleStart);
+        container.addEventListener('pointermove', handleMove);
+        container.addEventListener('pointerup', handleEnd);
+        container.addEventListener('pointercancel', handleCancel);
+        container.addEventListener('lostpointercapture', handleCancel);
     }
 
     _showPowerStationMenu(tile, deviceId, legacyEntityId) {
