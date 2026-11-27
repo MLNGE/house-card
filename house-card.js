@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.40.1
+ * @version 1.40.2
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2685,11 +2685,14 @@ class HouseCard extends HTMLElement {
           .is-hot .badge-dot { background: var(--color-hot); box-shadow: 0 0 5px var(--color-hot); }
           .dehumidifier-indicator {
               position: absolute; top: 50%; left: 14px; z-index: 1;
-              display: grid; width: 11px; height: 11px; place-items: center;
+              display: grid; width: 12px; height: 12px; place-items: center;
               transform: translateY(-50%); pointer-events: none;
           }
           .flip-icon .dehumidifier-indicator { left: auto; right: 14px; }
-          .dehumidifier-indicator ha-icon { --mdc-icon-size: 11px; display: block; }
+          .dehumidifier-indicator ha-icon {
+              --mdc-icon-size: 12px; display: block; width: 12px; height: 12px;
+              transform-box: border-box; transform-origin: 50% 50%;
+          }
           .dehumidifier-indicator--on ha-icon {
               color: #81C784;
               animation: hcDehumidifierFanSpin 1s linear infinite paused;

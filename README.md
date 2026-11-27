@@ -322,6 +322,9 @@ Examples:
 
 ## Changelog
 
+### v1.40.2
+- Center the rotating dehumidifier fan icon to prevent wobble
+
 ### v1.40.1
 - Replace the room-badge dehumidifier status dot with a compact fan icon that spins while on
 
