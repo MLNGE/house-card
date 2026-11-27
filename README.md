@@ -322,6 +322,9 @@ Examples:
 
 ## Changelog
 
+### v1.40.6
+- Hide the dehumidifier fan indicator while the device is off
+
 ### v1.40.5
 - Organize the visual editor into collapsible sections and separate YAML mapping editors
 
