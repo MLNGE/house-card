@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.38.5
+ * @version 1.39.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -629,6 +629,8 @@ class HouseCard extends HTMLElement {
             .entity-menu-item--switch .switch-badge { font-size: 0.75rem; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
             .entity-menu-item--switch .switch-badge--on { background: rgba(76,175,80,0.25); color: #81C784; }
             .entity-menu-item--switch .switch-badge--off { background: rgba(255,255,255,0.08); color: #888; }
+            .entity-menu-item--switch .switch-badge--unavailable { background: rgba(255,255,255,0.08); color: #888; }
+            .entity-menu-item--switch[aria-disabled="true"] { cursor: default; opacity: 0.65; }
             .entity-menu-item ha-icon { --mdc-icon-size: 20px; color: #64B5F6; }
         `;
         document.head.appendChild(s);
@@ -656,22 +658,41 @@ class HouseCard extends HTMLElement {
             const value = state ? `${Math.round(parseFloat(state.state))} ${state.attributes?.unit_of_measurement || 'ppm'}` : '—';
             entities.push({ id: room.co2_entity, label: value, icon: 'mdi:molecule-co2' });
         }
-        
-        if (entities.length === 0) return;
-        if (entities.length === 1) {
+
+        const dehumidifierEntity = room.dehumidifier_entity;
+        const isDehumidifierSwitch = typeof dehumidifierEntity === 'string' && dehumidifierEntity.startsWith('switch.');
+        const dehumidifierState = isDehumidifierSwitch ? this._hass.states[dehumidifierEntity] : null;
+        const dehumidifierAvailable = dehumidifierState &&
+            dehumidifierState.state !== 'unknown' &&
+            dehumidifierState.state !== 'unavailable';
+        const dehumidifierStatus = !isDehumidifierSwitch
+            ? 'INVALID'
+            : !dehumidifierAvailable
+                ? 'UNAVAILABLE'
+                : dehumidifierState.state.toUpperCase();
+
+        if (entities.length === 0 && !dehumidifierEntity) return;
+        if (entities.length === 1 && !dehumidifierEntity) {
             this._fireMoreInfo(entities[0].id);
             return;
         }
-        
+
         // Create menu
         const menu = document.createElement('div');
         menu.className = 'entity-menu';
-        menu.innerHTML = entities.map(ent => `
+        const entityRows = entities.map(ent => `
             <div class="entity-menu-item" data-entity="${ent.id}">
                 <ha-icon icon="${ent.icon}"></ha-icon>
                 <span>${ent.label}</span>
             </div>
         `).join('');
+        const dehumidifierRow = dehumidifierEntity
+            ? `<div class="entity-menu-item entity-menu-item--switch" data-action="toggle-switch" data-entity="${dehumidifierEntity}"${dehumidifierAvailable ? '' : ' aria-disabled="true"'}>
+                <span class="switch-left"><ha-icon icon="mdi:air-humidifier"></ha-icon><span>Dehumidifier</span></span>
+                <span class="switch-badge switch-badge--${dehumidifierAvailable ? dehumidifierState.state : 'unavailable'}">${dehumidifierStatus}</span>
+               </div>`
+            : '';
+        menu.innerHTML = entityRows + (entityRows && dehumidifierRow ? '<div class="entity-menu-separator"></div>' : '') + dehumidifierRow;
         
         const rect = badge.getBoundingClientRect();
         document.body.appendChild(menu);
@@ -687,6 +708,14 @@ class HouseCard extends HTMLElement {
         const selectMenuItem = (item) => {
             const entityId = item.getAttribute('data-entity');
             if (entityId) {
+                if (item.dataset.action === 'toggle-switch') {
+                    const state = this._hass.states[entityId];
+                    if (!entityId.startsWith('switch.') || !state || state.state === 'unknown' || state.state === 'unavailable') return;
+                    this._hass.callService('switch', 'toggle', {}, { entity_id: entityId });
+                    menu.remove();
+                    cleanup();
+                    return;
+                }
                 this._fireMoreInfo(entityId);
                 menu.remove();
                 cleanup();
