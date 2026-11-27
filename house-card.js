@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.39.1
+ * @version 1.39.5
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -610,6 +610,7 @@ class HouseCard extends HTMLElement {
                 animation: hcMenuFadeIn 0.15s ease-out;
                 pointer-events: auto;
             }
+            .entity-menu--dehumidifier { width: 240px; max-width: calc(100vw - 16px); }
             @keyframes hcMenuFadeIn {
                 from { opacity: 0; transform: translateY(-5px); }
                 to   { opacity: 1; transform: translateY(0); }
@@ -632,6 +633,20 @@ class HouseCard extends HTMLElement {
             .entity-menu-item--switch .switch-badge--unavailable { background: rgba(255,255,255,0.08); color: #888; }
             .entity-menu-item--switch[aria-disabled="true"] { cursor: default; opacity: 0.65; }
             .entity-menu-item ha-icon { --mdc-icon-size: 20px; color: #64B5F6; }
+            .dehumidifier-stats-card {
+                display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 10px 12px;
+                border: 1px solid rgba(255,255,255,0.14); border-radius: 6px;
+                background: rgba(255,255,255,0.04); color: #fff; cursor: pointer;
+                font: inherit; text-align: left; -webkit-tap-highlight-color: transparent;
+            }
+            .dehumidifier-stats-card:hover { background: rgba(255,255,255,0.1); }
+            .dehumidifier-stats-card:focus-visible { outline: 2px solid #90CAF9; outline-offset: 2px; }
+            .dehumidifier-stats-card__header { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 600; }
+            .dehumidifier-stats-card__header ha-icon { --mdc-icon-size: 18px; color: #90CAF9; }
+            .dehumidifier-stats-card__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; margin-top: 10px; }
+            .dehumidifier-stats-card__stat { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+            .dehumidifier-stats-card__label { color: rgba(255,255,255,0.68); font-size: 0.72rem; }
+            .dehumidifier-stats-card__value { font-size: 0.84rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
         `;
         document.head.appendChild(s);
     }
@@ -671,6 +686,56 @@ class HouseCard extends HTMLElement {
             : !dehumidifierAvailable
                 ? 'UNAVAILABLE'
                 : dehumidifierState.state.toUpperCase();
+        const deviceId = dehumidifierEntity ? this._hass.entities?.[dehumidifierEntity]?.device_id : null;
+        const deviceInfo = deviceId ? this._hass.devices?.[deviceId] : null;
+        const deviceName = deviceInfo?.name_by_user || deviceInfo?.name || 'Dehumidifier';
+        const dehumidifierStats = [];
+
+        if (dehumidifierAvailable && dehumidifierState.state === 'on') {
+            const attributes = dehumidifierState.attributes || {};
+            const addStat = (label, value, unit = '') => {
+                if (value === undefined || value === null || value === '') return;
+                dehumidifierStats.push({ label, value: `${value}${unit}` });
+            };
+
+            addStat('Current humidity', attributes.current_humidity, '%');
+            addStat('Target humidity', attributes.humidity ?? attributes.target_humidity, '%');
+            if (attributes.mode) {
+                const mode = String(attributes.mode).replace(/_/g, ' ');
+                addStat('Mode', mode.charAt(0).toUpperCase() + mode.slice(1));
+            }
+
+            const deviceEntityIds = deviceId
+                ? Object.keys(this._hass.states).filter((entityId) =>
+                    entityId !== dehumidifierEntity &&
+                    this._hass.entities?.[entityId]?.device_id === deviceId &&
+                    (entityId.startsWith('sensor.') || entityId.startsWith('binary_sensor.')))
+                : [];
+            deviceEntityIds.sort((a, b) => {
+                const nameA = this._hass.states[a]?.attributes?.friendly_name || a;
+                const nameB = this._hass.states[b]?.attributes?.friendly_name || b;
+                return nameA.localeCompare(nameB);
+            });
+
+            deviceEntityIds.forEach((entityId) => {
+                const state = this._hass.states[entityId];
+                if (!state || state.state === 'unknown' || state.state === 'unavailable') return;
+
+                const isBinarySensor = entityId.startsWith('binary_sensor.');
+                const isHumiditySensor = state.attributes?.device_class === 'humidity' || entityId.endsWith('_humidity');
+                if (!isBinarySensor && isHumiditySensor && attributes.current_humidity != null) return;
+
+                const rawName = state.attributes?.friendly_name || entityId.split('.')[1].replace(/_/g, ' ');
+                const label = rawName.toLowerCase().startsWith(deviceName.toLowerCase())
+                    ? rawName.slice(deviceName.length).trim()
+                    : rawName;
+                const unit = state.attributes?.unit_of_measurement;
+                const value = isBinarySensor
+                    ? state.state.toUpperCase()
+                    : `${state.state}${unit ? ` ${unit}` : ''}`;
+                addStat(label || rawName, value);
+            });
+        }
 
         if (entities.length === 0 && !dehumidifierEntity) return;
         if (entities.length === 1 && !dehumidifierEntity) {
@@ -694,6 +759,55 @@ class HouseCard extends HTMLElement {
                </div>`
             : '';
         menu.innerHTML = entityRows + (entityRows && dehumidifierRow ? '<div class="entity-menu-separator"></div>' : '') + dehumidifierRow;
+
+        if (dehumidifierStats.length > 0) {
+            menu.classList.add('entity-menu--dehumidifier');
+            const separator = document.createElement('div');
+            separator.className = 'entity-menu-separator';
+            menu.appendChild(separator);
+
+            const statsCard = document.createElement('button');
+            statsCard.type = 'button';
+            statsCard.className = 'dehumidifier-stats-card';
+            statsCard.setAttribute('aria-label', deviceId ? `Open ${deviceName} device page` : `Open ${deviceName} details`);
+
+            const heading = document.createElement('span');
+            heading.className = 'dehumidifier-stats-card__header';
+            const title = document.createElement('span');
+            title.textContent = deviceName;
+            const openIcon = document.createElement('ha-icon');
+            openIcon.setAttribute('icon', 'mdi:open-in-new');
+            heading.append(title, openIcon);
+            statsCard.appendChild(heading);
+
+            const statsGrid = document.createElement('span');
+            statsGrid.className = 'dehumidifier-stats-card__grid';
+            dehumidifierStats.forEach((stat) => {
+                const statElement = document.createElement('span');
+                statElement.className = 'dehumidifier-stats-card__stat';
+                const label = document.createElement('span');
+                label.className = 'dehumidifier-stats-card__label';
+                label.textContent = stat.label;
+                const value = document.createElement('span');
+                value.className = 'dehumidifier-stats-card__value';
+                value.textContent = stat.value;
+                statElement.append(label, value);
+                statsGrid.appendChild(statElement);
+            });
+            statsCard.appendChild(statsGrid);
+            statsCard.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (deviceId) {
+                    history.pushState(null, '', `/config/devices/device/${encodeURIComponent(deviceId)}`);
+                    window.dispatchEvent(new Event('location-changed'));
+                } else {
+                    this._fireMoreInfo(dehumidifierEntity);
+                }
+                menu.remove();
+                cleanup();
+            });
+            menu.appendChild(statsCard);
+        }
         
         const rect = badge.getBoundingClientRect();
         document.body.appendChild(menu);
@@ -703,7 +817,7 @@ class HouseCard extends HTMLElement {
             ? rect.bottom + window.scrollY
             : rect.top + window.scrollY - menuH;
         menu.style.top  = `${top}px`;
-        menu.style.left = `${rect.left + window.scrollX}px`;
+        menu.style.left = `${Math.max(window.scrollX + 8, Math.min(rect.left + window.scrollX, window.scrollX + window.innerWidth - menu.offsetWidth - 8))}px`;
         
         // Handle menu item selection
         const selectMenuItem = (item) => {
@@ -726,13 +840,12 @@ class HouseCard extends HTMLElement {
         
         // Handle menu clicks (unified for mouse and touch)
         const handleMenuClick = (e) => {
+            const item = e.target.closest('.entity-menu-item');
+            if (!item) return;
             e.stopPropagation();
             e.preventDefault();
-            const item = e.target.closest('.entity-menu-item');
-            if (item) {
-                // Small delay to ensure proper event handling on mobile
-                setTimeout(() => selectMenuItem(item), 50);
-            }
+            // Small delay to ensure proper event handling on mobile
+            setTimeout(() => selectMenuItem(item), 50);
         };
         
         // Close menu on outside click

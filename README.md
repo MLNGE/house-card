@@ -194,7 +194,7 @@ wind_direction_entity: sensor.wind_bearing  # Wind Bearing (degrees)
 # unit: Custom unit string (default: "°"). Set to "W" for Power (Yellow Spark icon).
 # decimals: Number of decimal places (default: 1). Set to 0 for integers.
 # humidity_entity: Optional second value to display next to main value (e.g. "21° | 45%")
-# dehumidifier_entity: Optional switch.* or humidifier.* entity; appears as an ON/OFF control in the room's long-press menu
+# dehumidifier_entity: Optional switch.* or humidifier.* entity; ON shows device stats beneath its long-press control, linked to the HA device page
 # flip_icon: true = Icon/dot on right side, text left-aligned (default: false = icon on left)
 # weight: 1 = Include in calculation, 0 = Exclude
 rooms:
@@ -324,6 +324,7 @@ Examples:
 
 ### v1.39.0
 - Add optional room-level dehumidifier controls for switch and humidifier entities
+- Show live device statistics while the dehumidifier is on, with a link to its Home Assistant device page
 
 ### v1.36.1
 - Fix crash when clicking the power station tile (single tap) caused by an internal entity map resolution error
