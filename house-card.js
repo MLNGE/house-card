@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.40.0
+ * @version 1.40.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -234,6 +234,7 @@ class HouseCard extends HTMLElement {
           entries.forEach(entry => {
             const wasVisible = this._isVisible;
             this._isVisible = entry.isIntersecting;
+            this._updateDehumidifierFanVisibility();
             
             if (this._isVisible && !wasVisible) {
               // Card just became visible - restart animation
@@ -246,6 +247,7 @@ class HouseCard extends HTMLElement {
         }, { threshold: 0.1 });
         this._intersectionObserver.observe(this);
       }
+      this._updateDehumidifierFanVisibility();
     }
   
     disconnectedCallback() {
@@ -254,16 +256,26 @@ class HouseCard extends HTMLElement {
         this._intersectionObserver.disconnect();
         this._intersectionObserver = null;
       }
+      this._isVisible = false;
+      this._updateDehumidifierFanVisibility();
       this._stopAnimation();
       document.removeEventListener('visibilitychange', this._handleVisibilityChange);
     }
 
     _onVisibilityChange() {
+      this._updateDehumidifierFanVisibility();
       if (document.hidden) {
         this._stopAnimation();
       } else if (this._isVisible) {
         // Tab visible again and card is in viewport
         this._restartAnimation();
+      }
+    }
+
+    _updateDehumidifierFanVisibility() {
+      const badgesLayer = this.shadowRoot?.querySelector('.badges-layer');
+      if (badgesLayer) {
+        badgesLayer.classList.toggle('dehumidifier-fan-visible', this._isVisible && !document.hidden);
       }
     }
 
@@ -492,7 +504,7 @@ class HouseCard extends HTMLElement {
                 ? 'off'
                 : 'unavailable';
         const dehumidifierIndicator = room.dehumidifier_entity
-            ? `<span class="dehumidifier-indicator dehumidifier-indicator--${dehumidifierStatus}" role="img" aria-label="Dehumidifier ${dehumidifierStatus}" title="Dehumidifier ${dehumidifierStatus}"></span>`
+            ? `<span class="dehumidifier-indicator dehumidifier-indicator--${dehumidifierStatus}" role="img" aria-label="Dehumidifier ${dehumidifierStatus}" title="Dehumidifier ${dehumidifierStatus}"><ha-icon icon="mdi:fan"></ha-icon></span>`
             : '';
         return `
           <div class="badge ${colorClass} ${flipClass}" data-index="${index}" data-entity="${room.entity}" style="top: ${top}%; left: ${left}%;">
@@ -2672,14 +2684,23 @@ class HouseCard extends HTMLElement {
           .is-warm .badge-dot { background: var(--color-warm); box-shadow: 0 0 5px var(--color-warm); }
           .is-hot .badge-dot { background: var(--color-hot); box-shadow: 0 0 5px var(--color-hot); }
           .dehumidifier-indicator {
-              position: absolute; top: calc(50% + 2px); left: 17px; z-index: 1;
-              width: 7px; height: 7px; box-sizing: border-box; border: 1px solid rgba(20,20,25,0.95);
-              border-radius: 50%; box-shadow: 0 0 0 1px rgba(255,255,255,0.55); pointer-events: none;
+              position: absolute; top: 50%; left: 14px; z-index: 1;
+              display: grid; width: 11px; height: 11px; place-items: center;
+              transform: translateY(-50%); pointer-events: none;
           }
-          .flip-icon .dehumidifier-indicator { left: auto; right: 17px; }
-          .dehumidifier-indicator--on { background: #4CAF50; }
-          .dehumidifier-indicator--off { background: #9E9E9E; }
-          .dehumidifier-indicator--unavailable { background: #FFB74D; }
+          .flip-icon .dehumidifier-indicator { left: auto; right: 14px; }
+          .dehumidifier-indicator ha-icon { --mdc-icon-size: 11px; display: block; }
+          .dehumidifier-indicator--on ha-icon {
+              color: #81C784;
+              animation: hcDehumidifierFanSpin 1s linear infinite paused;
+          }
+          .badges-layer.dehumidifier-fan-visible .dehumidifier-indicator--on ha-icon { animation-play-state: running; }
+          .dehumidifier-indicator--off ha-icon { color: #9E9E9E; }
+          .dehumidifier-indicator--unavailable ha-icon { color: #FFB74D; }
+          @keyframes hcDehumidifierFanSpin { to { transform: rotate(360deg); } }
+          @media (prefers-reduced-motion: reduce) {
+              .dehumidifier-indicator--on ha-icon { animation: none; }
+          }
           
           /* SPARK ICON STYLE */
           .spark-icon {
