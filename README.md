@@ -331,6 +331,9 @@ Examples:
 
 ## Changelog
 
+### v1.41.1
+- Make the thermostat badge more compact
+
 ### v1.41.0
 - Add a visual-editor-configurable thermostat badge for climate entities with adjustable position and More Info access
 

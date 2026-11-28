@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.41.0
+ * @version 1.41.1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2799,9 +2799,9 @@ class HouseCard extends HTMLElement {
               transform: translate(-50%, -50%);
               display: flex;
               align-items: center;
-              gap: 8px;
-              max-width: min(230px, calc(100% - 16px));
-              padding: 7px 10px;
+              gap: 6px;
+              max-width: min(215px, calc(100% - 12px));
+              padding: 6px 8px;
               border: 1px solid rgba(255,255,255, calc(var(--badge-opacity, 0.75) * 0.2));
               border-radius: 12px;
               background: rgba(20, 20, 25, var(--badge-opacity, 0.75));
@@ -2823,20 +2823,20 @@ class HouseCard extends HTMLElement {
               outline-offset: 3px;
           }
           .thermostat-badge ha-icon {
-              --mdc-icon-size: 19px;
+              --mdc-icon-size: 18px;
               flex: 0 0 auto;
               color: #7dd3fc;
           }
           .thermostat-badge__content {
               display: flex;
               flex-direction: column;
-              gap: 4px;
+              gap: 3px;
               min-width: 0;
           }
           .thermostat-badge__name {
               overflow: hidden;
               color: rgba(255, 255, 255, 0.72);
-              font-size: 0.58rem;
+              font-size: 0.55rem;
               font-weight: 600;
               line-height: 1.1;
               text-overflow: ellipsis;
@@ -2847,8 +2847,8 @@ class HouseCard extends HTMLElement {
               display: flex;
               align-items: baseline;
               flex-wrap: wrap;
-              gap: 3px 7px;
-              font-size: 0.68rem;
+              gap: 2px 5px;
+              font-size: 0.64rem;
               line-height: 1.1;
           }
           .thermostat-badge__current {
@@ -2861,7 +2861,7 @@ class HouseCard extends HTMLElement {
           }
           .thermostat-badge__mode {
               color: #bae6fd;
-              font-size: 0.56rem;
+              font-size: 0.52rem;
               font-weight: 700;
               text-transform: uppercase;
           }
