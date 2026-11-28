@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.41.1
+ * @version 1.41.2
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -156,6 +156,7 @@ class HouseCard extends HTMLElement {
         cloud_coverage_entity: "sensor.openweathermap_cloud_coverage",
         party_mode_entity: "input_boolean.gaming_mode",
         thermostat_entity: null,
+        thermostat_title: "",
         thermostat_x: 50,
         thermostat_y: 50,
         power_station_device_id: null,
@@ -647,7 +648,13 @@ class HouseCard extends HTMLElement {
         const targetTemperature = formatTemperature(attributes.temperature);
         const mode = isAvailable ? entity.state : 'unavailable';
         const modeLabel = mode.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
-        const title = attributes.friendly_name || 'Thermostat';
+        const configuredTitle = typeof this._config.thermostat_title === 'string'
+            ? this._config.thermostat_title.trim()
+            : '';
+        const friendlyName = typeof attributes.friendly_name === 'string'
+            ? attributes.friendly_name.trim()
+            : '';
+        const title = configuredTitle || friendlyName || 'Thermostat';
         const hash = [
             entityId,
             entity?.state,
@@ -681,6 +688,7 @@ class HouseCard extends HTMLElement {
         const badge = document.createElement('button');
         badge.type = 'button';
         badge.className = 'thermostat-badge';
+        badge.setAttribute('data-hvac-mode', mode.toLowerCase().replace(/[^a-z0-9_-]/g, '-'));
         badge.style.left = `${x}%`;
         badge.style.top = `${y}%`;
         badge.setAttribute('aria-label', `${title}. Now ${currentTemperature}. Set ${targetTemperature}. Mode ${modeLabel}. Open thermostat details.`);
@@ -2704,6 +2712,8 @@ class HouseCard extends HTMLElement {
           }
           .nav-link {
               position: absolute;
+              --thermostat-mode-color: #bae6fd;
+              --thermostat-mode-background: rgba(125, 211, 252, 0.12);
               transform: translate(-50%, -50%);
               display: flex;
               flex-direction: column;
@@ -2825,7 +2835,43 @@ class HouseCard extends HTMLElement {
           .thermostat-badge ha-icon {
               --mdc-icon-size: 18px;
               flex: 0 0 auto;
-              color: #7dd3fc;
+              color: var(--thermostat-mode-color);
+          }
+          .thermostat-badge[data-hvac-mode="heat"] {
+              --thermostat-mode-color: #fdba74;
+              --thermostat-mode-background: rgba(249, 115, 22, 0.18);
+          }
+          .thermostat-badge[data-hvac-mode="cool"] {
+              --thermostat-mode-color: #93c5fd;
+              --thermostat-mode-background: rgba(59, 130, 246, 0.18);
+          }
+          .thermostat-badge[data-hvac-mode="heat_cool"] {
+              --thermostat-mode-color: #d8b4fe;
+              --thermostat-mode-background: rgba(168, 85, 247, 0.18);
+          }
+          .thermostat-badge[data-hvac-mode="auto"] {
+              --thermostat-mode-color: #5eead4;
+              --thermostat-mode-background: rgba(20, 184, 166, 0.16);
+          }
+          .thermostat-badge[data-hvac-mode="off"] {
+              --thermostat-mode-color: #cbd5e1;
+              --thermostat-mode-background: rgba(148, 163, 184, 0.14);
+          }
+          .thermostat-badge[data-hvac-mode="dry"] {
+              --thermostat-mode-color: #fde047;
+              --thermostat-mode-background: rgba(234, 179, 8, 0.16);
+          }
+          .thermostat-badge[data-hvac-mode="fan_only"] {
+              --thermostat-mode-color: #86efac;
+              --thermostat-mode-background: rgba(34, 197, 94, 0.15);
+          }
+          .thermostat-badge[data-hvac-mode="emergency_heat"] {
+              --thermostat-mode-color: #fca5a5;
+              --thermostat-mode-background: rgba(239, 68, 68, 0.17);
+          }
+          .thermostat-badge[data-hvac-mode="unavailable"] {
+              --thermostat-mode-color: #fcd34d;
+              --thermostat-mode-background: rgba(245, 158, 11, 0.15);
           }
           .thermostat-badge__content {
               display: flex;
@@ -2860,7 +2906,10 @@ class HouseCard extends HTMLElement {
               font-variant-numeric: tabular-nums;
           }
           .thermostat-badge__mode {
-              color: #bae6fd;
+              padding: 2px 5px;
+              border-radius: 999px;
+              background: var(--thermostat-mode-background);
+              color: var(--thermostat-mode-color);
               font-size: 0.52rem;
               font-weight: 700;
               text-transform: uppercase;
@@ -3790,6 +3839,7 @@ const EDITOR_SCHEMA = [
     { name: "sun_entity", selector: { entity: { domain: "sun" } } },
     { name: "aurora_entity", selector: { entity: { domain: "binary_sensor" } } },
     { name: "thermostat_entity", selector: { entity: { domain: "climate" } } },
+    { name: "thermostat_title", selector: { text: {} } },
     {
         type: "grid",
         name: "Thermostat Position",
@@ -3841,6 +3891,7 @@ const EDITOR_LABELS = {
     sun_entity: "Sun Entity",
     aurora_entity: "Aurora Binary Sensor",
     thermostat_entity: "Thermostat Climate Entity",
+    thermostat_title: "Thermostat Badge Title",
     thermostat_x: "Thermostat Position X (%)",
     thermostat_y: "Thermostat Position Y (%)",
     power_station_device_id: "Power Station Device",
@@ -3874,8 +3925,8 @@ const EDITOR_GROUPS = [
     },
     {
         title: "Thermostat Badge",
-        description: "Choose a climate entity and position its badge on the house image.",
-        fields: ["thermostat_entity", "thermostat_x", "thermostat_y"]
+        description: "Choose a climate entity, badge title, and position on the house image.",
+        fields: ["thermostat_entity", "thermostat_title", "thermostat_x", "thermostat_y"]
     },
     {
         title: "Visual Effects",

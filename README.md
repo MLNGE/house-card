@@ -151,7 +151,9 @@ power_station_height: 18  # Height %
 # --- Thermostat Badge ---
 # Select a climate entity in the visual editor. The badge shows current temperature,
 # setpoint, and HVAC mode; tapping it opens the entity's Home Assistant More Info dialog.
+# Leave thermostat_title blank to use the entity's friendly name.
 thermostat_entity: climate.living_room
+thermostat_title: "Heating"
 thermostat_x: 50          # Horizontal position % (0 = left, 100 = right)
 thermostat_y: 50          # Vertical position % (0 = top, 100 = bottom)
 
@@ -330,6 +332,9 @@ Examples:
 - `winter_xmas_night.png`
 
 ## Changelog
+
+### v1.41.2
+- Add a visual-editor setting to customize the thermostat badge title
 
 ### v1.41.1
 - Make the thermostat badge more compact
