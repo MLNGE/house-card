@@ -7,12 +7,6 @@ on:
       - master
     paths:
       - 'house-card.js'
-      - 'src/**'
-      - 'tests/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'scripts/build.cjs'
-      - '.github/workflows/release.yml'
 
 jobs:
   release:
@@ -25,21 +19,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Validate source
-        run: |
-          npm ci
-          npm test
-
-      - name: Build release bundle
-        run: |
-          npm run build
 
       - name: Get version from house-card.js
         id: version

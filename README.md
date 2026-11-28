@@ -87,16 +87,6 @@ If you enjoy this card and want to support its development, you can buy me a cof
        type: module
    ```
 
-### Development
-The source is organized under `src/`; the root `house-card.js` is the single-file bundle used by HACS, manual installs, and GitHub releases. With Node.js installed, run:
-
-```sh
-npm ci
-npm run build
-```
-
-Commit the regenerated `house-card.js` with source changes so the release asset stays current.
-
 ## Configuration
 
 The visual editor groups settings into collapsible sections for appearance, weather and integrations, thermostat badge, visual effects, room and interactive-element mappings, power-station positioning, and debugging. Select a climate entity and position its thermostat badge with the X/Y sliders. Common settings use Home Assistant controls; complex mappings such as `rooms`, `window_lights`, `nav_links`, and `decorations` remain available in individual YAML editors.
@@ -161,9 +151,7 @@ power_station_height: 18  # Height %
 # --- Thermostat Badge ---
 # Select a climate entity in the visual editor. The badge shows current temperature,
 # setpoint, and HVAC mode; tapping it opens the entity's Home Assistant More Info dialog.
-# Leave thermostat_title blank to use the entity's friendly name.
 thermostat_entity: climate.living_room
-thermostat_title: "Heating"
 thermostat_x: 50          # Horizontal position % (0 = left, 100 = right)
 thermostat_y: 50          # Vertical position % (0 = top, 100 = bottom)
 
@@ -342,14 +330,6 @@ Examples:
 - `winter_xmas_night.png`
 
 ## Changelog
-
-### v1.41.3
-- Reduce unnecessary Home Assistant update work and canvas allocations
-- Keep the card DOM stable across configuration updates and fix overlay refreshes
-- Split source modules while retaining the single-file install and release bundle
-
-### v1.41.2
-- Add a visual-editor setting to customize the thermostat badge title
 
 ### v1.41.1
 - Make the thermostat badge more compact
