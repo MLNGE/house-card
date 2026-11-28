@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.40.9
+ * @version 1.41.0
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -109,6 +109,8 @@ class HouseCard extends HTMLElement {
       this._lastWindowLightsData = null;
     this._lastPowerStationData = null;
     this._lastPowerStationPos = null;
+    this._lastThermostatBadgeData = null;
+    this._lastThermostatBadgePos = null;
       
       // Visibility tracking
       this._isVisible = false;
@@ -153,6 +155,9 @@ class HouseCard extends HTMLElement {
         badge_opacity: 0.75,
         cloud_coverage_entity: "sensor.openweathermap_cloud_coverage",
         party_mode_entity: "input_boolean.gaming_mode",
+        thermostat_entity: null,
+        thermostat_x: 50,
+        thermostat_y: 50,
         power_station_device_id: null,
         power_station_x: 26,
         power_station_y: 84,
@@ -201,6 +206,8 @@ class HouseCard extends HTMLElement {
             this._decorationsRendered = false; // Reset so decorations re-render on config change
             this._lastPowerStationData = null;
             this._lastPowerStationPos = null;
+            this._lastThermostatBadgeData = null;
+            this._lastThermostatBadgePos = null;
             this._render();
             if (this._hass) this._updateData();
         }
@@ -422,6 +429,7 @@ class HouseCard extends HTMLElement {
       
       this._updateBadges(roomsData);
       this._updateWindowLights();
+      this._updateThermostatBadge();
     this._updatePowerStationTile();
       this._updateNavLinks();
       if (!this._decorationsRendered) this._updateDecorations();
@@ -612,6 +620,102 @@ class HouseCard extends HTMLElement {
           
           this._badgesDelegated = true;
       }
+    }
+
+    _updateThermostatBadge() {
+        const container = this.shadowRoot.querySelector('.thermostat-badges-layer');
+        if (!container) return;
+
+        const entityId = this._config.thermostat_entity;
+        if (!entityId) {
+            container.replaceChildren();
+            this._lastThermostatBadgeData = null;
+            this._lastThermostatBadgePos = null;
+            return;
+        }
+
+        const entity = this._hass.states[entityId];
+        const attributes = entity?.attributes || {};
+        const isAvailable = typeof entity?.state === 'string' && entity.state !== 'unknown' && entity.state !== 'unavailable';
+        const temperatureUnit = attributes.temperature_unit || this._hass.config?.unit_system?.temperature || '°';
+        const formatTemperature = (value) => {
+            if (!isAvailable || value === null || value === undefined || value === '') return '--';
+            const temperature = Number(value);
+            return Number.isFinite(temperature) ? `${temperature.toFixed(1)} ${temperatureUnit}` : '--';
+        };
+        const currentTemperature = formatTemperature(attributes.current_temperature);
+        const targetTemperature = formatTemperature(attributes.temperature);
+        const mode = isAvailable ? entity.state : 'unavailable';
+        const modeLabel = mode.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+        const title = attributes.friendly_name || 'Thermostat';
+        const hash = [
+            entityId,
+            entity?.state,
+            currentTemperature,
+            targetTemperature,
+            temperatureUnit,
+            title
+        ].join('|');
+        const positionHash = `${this._config.thermostat_x}|${this._config.thermostat_y}`;
+        const normalizePosition = (value) => {
+            if (value === null || value === undefined || value === '') return 50;
+            const position = Number(value);
+            return Number.isFinite(position) ? Math.min(100, Math.max(0, position)) : 50;
+        };
+        const x = normalizePosition(this._config.thermostat_x);
+        const y = normalizePosition(this._config.thermostat_y);
+        const existingBadge = container.querySelector('.thermostat-badge');
+
+        if (this._lastThermostatBadgeData === hash && existingBadge) {
+            if (this._lastThermostatBadgePos !== positionHash) {
+                existingBadge.style.left = `${x}%`;
+                existingBadge.style.top = `${y}%`;
+                this._lastThermostatBadgePos = positionHash;
+            }
+            return;
+        }
+
+        this._lastThermostatBadgeData = hash;
+        this._lastThermostatBadgePos = positionHash;
+
+        const badge = document.createElement('button');
+        badge.type = 'button';
+        badge.className = 'thermostat-badge';
+        badge.style.left = `${x}%`;
+        badge.style.top = `${y}%`;
+        badge.setAttribute('aria-label', `${title}. Now ${currentTemperature}. Set ${targetTemperature}. Mode ${modeLabel}. Open thermostat details.`);
+
+        const icon = document.createElement('ha-icon');
+        icon.setAttribute('icon', 'mdi:thermostat');
+        icon.setAttribute('aria-hidden', 'true');
+
+        const content = document.createElement('span');
+        content.className = 'thermostat-badge__content';
+
+        const name = document.createElement('span');
+        name.className = 'thermostat-badge__name';
+        name.textContent = title;
+
+        const details = document.createElement('span');
+        details.className = 'thermostat-badge__details';
+
+        const current = document.createElement('span');
+        current.className = 'thermostat-badge__current';
+        current.textContent = `Now ${currentTemperature}`;
+
+        const target = document.createElement('span');
+        target.className = 'thermostat-badge__target';
+        target.textContent = `Set ${targetTemperature}`;
+
+        const modeElement = document.createElement('span');
+        modeElement.className = 'thermostat-badge__mode';
+        modeElement.textContent = modeLabel;
+
+        details.append(current, target, modeElement);
+        content.append(name, details);
+        badge.append(icon, content);
+        badge.addEventListener('click', () => this._fireMoreInfo(entityId));
+        container.replaceChildren(badge);
     }
 
     // ───────────────────────────────────────────────────────────────────────────
@@ -2688,6 +2792,82 @@ class HouseCard extends HTMLElement {
           
           .badges-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
           .power-stations-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 6; pointer-events: none; }
+          .thermostat-badges-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 7; pointer-events: none; }
+
+          .thermostat-badge {
+              position: absolute;
+              transform: translate(-50%, -50%);
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              max-width: min(230px, calc(100% - 16px));
+              padding: 7px 10px;
+              border: 1px solid rgba(255,255,255, calc(var(--badge-opacity, 0.75) * 0.2));
+              border-radius: 12px;
+              background: rgba(20, 20, 25, var(--badge-opacity, 0.75));
+              box-shadow: 0 4px 8px rgba(0,0,0, calc(var(--badge-opacity, 0.75) * 0.53));
+              backdrop-filter: blur(8px);
+              color: #fff;
+              font: inherit;
+              text-align: left;
+              cursor: pointer;
+              pointer-events: auto;
+              transition: transform 0.2s ease, box-shadow 0.2s ease;
+          }
+          .thermostat-badge:hover {
+              transform: translate(-50%, -50%) scale(1.03);
+              box-shadow: 0 6px 12px rgba(0,0,0, calc(var(--badge-opacity, 0.75) * 0.6));
+          }
+          .thermostat-badge:focus-visible {
+              outline: 2px solid var(--primary-color, #03a9f4);
+              outline-offset: 3px;
+          }
+          .thermostat-badge ha-icon {
+              --mdc-icon-size: 19px;
+              flex: 0 0 auto;
+              color: #7dd3fc;
+          }
+          .thermostat-badge__content {
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+              min-width: 0;
+          }
+          .thermostat-badge__name {
+              overflow: hidden;
+              color: rgba(255, 255, 255, 0.72);
+              font-size: 0.58rem;
+              font-weight: 600;
+              line-height: 1.1;
+              text-overflow: ellipsis;
+              text-transform: uppercase;
+              white-space: nowrap;
+          }
+          .thermostat-badge__details {
+              display: flex;
+              align-items: baseline;
+              flex-wrap: wrap;
+              gap: 3px 7px;
+              font-size: 0.68rem;
+              line-height: 1.1;
+          }
+          .thermostat-badge__current {
+              font-weight: 700;
+              font-variant-numeric: tabular-nums;
+          }
+          .thermostat-badge__target {
+              color: rgba(255, 255, 255, 0.78);
+              font-variant-numeric: tabular-nums;
+          }
+          .thermostat-badge__mode {
+              color: #bae6fd;
+              font-size: 0.56rem;
+              font-weight: 700;
+              text-transform: uppercase;
+          }
+          @media (prefers-reduced-motion: reduce) {
+              .thermostat-badge { transition: none; }
+          }
           
           /* BADGE STYLES */
           .badge {
@@ -2892,6 +3072,7 @@ class HouseCard extends HTMLElement {
           <div class="dim-layer"></div>
           <div class="window-lights-layer"></div>
           <div class="power-stations-layer"></div>
+          <div class="thermostat-badges-layer"></div>
           <div class="ambient-layer">
               <div class="ambient-light blob-1"></div>
               <div class="ambient-light blob-2"></div>
@@ -3608,6 +3789,15 @@ const EDITOR_SCHEMA = [
     { name: "season_entity", selector: { entity: { domain: "sensor" } } },
     { name: "sun_entity", selector: { entity: { domain: "sun" } } },
     { name: "aurora_entity", selector: { entity: { domain: "binary_sensor" } } },
+    { name: "thermostat_entity", selector: { entity: { domain: "climate" } } },
+    {
+        type: "grid",
+        name: "Thermostat Position",
+        schema: [
+            { name: "thermostat_x", default: 50, selector: { number: { min: 0, max: 100, step: 1, mode: "slider" } } },
+            { name: "thermostat_y", default: 50, selector: { number: { min: 0, max: 100, step: 1, mode: "slider" } } }
+        ]
+    },
     { name: "power_station_device_id", selector: { device: {} } },
     { name: "oukitel_integration_id", selector: { text: {} } },
     {
@@ -3650,6 +3840,9 @@ const EDITOR_LABELS = {
     season_entity: "Season Entity",
     sun_entity: "Sun Entity",
     aurora_entity: "Aurora Binary Sensor",
+    thermostat_entity: "Thermostat Climate Entity",
+    thermostat_x: "Thermostat Position X (%)",
+    thermostat_y: "Thermostat Position Y (%)",
     power_station_device_id: "Power Station Device",
     oukitel_integration_id: "Oukitel Integration Entry ID",
     moon_glow: "Moon Glow",
@@ -3678,6 +3871,11 @@ const EDITOR_GROUPS = [
         title: "Weather & Integrations",
         description: "Connect the entities and devices that power the card.",
         fields: ["weather_entity", "season_entity", "sun_entity", "aurora_entity", "power_station_device_id", "oukitel_integration_id"]
+    },
+    {
+        title: "Thermostat Badge",
+        description: "Choose a climate entity and position its badge on the house image.",
+        fields: ["thermostat_entity", "thermostat_x", "thermostat_y"]
     },
     {
         title: "Visual Effects",

@@ -17,6 +17,7 @@ This isn't just a sensor display — it's a **living visualization** that respon
 | 🌠 **Atmospheric Effects** | Shooting stars, seasonal particles (autumn leaves, cherry blossoms) |
 | 🌌 **Aurora Borealis** | Northern lights animation triggered by NOAA aurora visibility sensor |
 | 📊 **Sensor Badges** | Temperature, humidity, CO2, power — positioned anywhere |
+| 🌡️ **Thermostat Badge** | Show a climate entity's current temperature, setpoint, and mode |
 | 💡 **Interactive Lights** | Click windows to toggle lights with realistic glow effects |
 | 🔗 **Navigation Hotspots** | Clickable areas to navigate between HA views |
 | 🔋 **Power Station Tile** | Live stats tile with long-press menu to toggle AC/USB output switches |
@@ -32,6 +33,7 @@ This isn't just a sensor display — it's a **living visualization** that respon
 - 🍂 **Seasonal Particles** - Autumn leaves and spring cherry blossom petals
 - 🌌 **Aurora Borealis** - Northern lights animation when NOAA sensor detects aurora visibility
 - 📊 **Sensor Badges** - Display temperature, humidity, CO2, power consumption
+- 🌡️ **Thermostat Badge** - Display a climate entity's current temperature, setpoint, and HVAC mode; tap to open More Info
 - 💡 **Window Lights** - Link light entities to windows (glow when on, dark when off)
 - 🔗 **Navigation Links** - Clickable hotspots to navigate to other HA views
 - 🎮 **Gaming/Party Mode** - Ambient lighting effects
@@ -87,7 +89,7 @@ If you enjoy this card and want to support its development, you can buy me a cof
 
 ## Configuration
 
-The visual editor groups settings into collapsible sections for appearance, weather and integrations, visual effects, room and interactive-element mappings, power-station positioning, and debugging. Common settings use Home Assistant controls; complex mappings such as `rooms`, `window_lights`, `nav_links`, and `decorations` remain available in individual YAML editors.
+The visual editor groups settings into collapsible sections for appearance, weather and integrations, thermostat badge, visual effects, room and interactive-element mappings, power-station positioning, and debugging. Select a climate entity and position its thermostat badge with the X/Y sliders. Common settings use Home Assistant controls; complex mappings such as `rooms`, `window_lights`, `nav_links`, and `decorations` remain available in individual YAML editors.
 
 ```yaml
 type: custom:house-card
@@ -145,6 +147,13 @@ power_station_x: 26       # Horizontal position % (0 = left, 100 = right)
 power_station_y: 84       # Vertical position %
 power_station_width: 34   # Width %
 power_station_height: 18  # Height %
+
+# --- Thermostat Badge ---
+# Select a climate entity in the visual editor. The badge shows current temperature,
+# setpoint, and HVAC mode; tapping it opens the entity's Home Assistant More Info dialog.
+thermostat_entity: climate.living_room
+thermostat_x: 50          # Horizontal position % (0 = left, 100 = right)
+thermostat_y: 50          # Vertical position % (0 = top, 100 = bottom)
 
 # --- Moon Configuration ---
 # Requires the Moon integration: https://www.home-assistant.io/integrations/moon/
@@ -321,6 +330,9 @@ Examples:
 - `winter_xmas_night.png`
 
 ## Changelog
+
+### v1.41.0
+- Add a visual-editor-configurable thermostat badge for climate entities with adjustable position and More Info access
 
 ### v1.40.9
 - Hide the dehumidifier fan indicator while the device is unavailable
