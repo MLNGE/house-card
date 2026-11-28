@@ -17,7 +17,7 @@
  * * PERF: Throttle badge and window light updates (skip if unchanged).
  * * PERF: Sky gradient caching to prevent recreating on every frame.
  *
- * @version 1.40.8
+ * @version 1.40.9
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -503,7 +503,7 @@ class HouseCard extends HTMLElement {
             : room.dehumidifier_state === 'off'
                 ? 'off'
                 : 'unavailable';
-        const dehumidifierIndicator = room.dehumidifier_entity && dehumidifierStatus !== 'off'
+        const dehumidifierIndicator = room.dehumidifier_entity && dehumidifierStatus === 'on'
             ? `<span class="dehumidifier-indicator dehumidifier-indicator--${dehumidifierStatus}" role="img" aria-label="Dehumidifier ${dehumidifierStatus}" title="Dehumidifier ${dehumidifierStatus}"><svg class="dehumidifier-fan" viewBox="0 0 24 24" aria-hidden="true"><g class="dehumidifier-fan__rotor"><ellipse cx="12" cy="6.4" rx="2.4" ry="4.3"/><ellipse cx="12" cy="6.4" rx="2.4" ry="4.3" transform="rotate(120 12 12)"/><ellipse cx="12" cy="6.4" rx="2.4" ry="4.3" transform="rotate(240 12 12)"/><circle cx="12" cy="12" r="2"/></g></svg></span>`
             : '';
         return `

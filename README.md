@@ -322,6 +322,9 @@ Examples:
 
 ## Changelog
 
+### v1.40.9
+- Hide the dehumidifier fan indicator while the device is unavailable
+
 ### v1.40.8
 - Prevent power-station long presses from also opening the detail view
 
