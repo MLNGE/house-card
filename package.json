@@ -1,0 +1,13 @@
+{
+  "name": "house-card",
+  "version": "1.41.3",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
